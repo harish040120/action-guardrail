@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Action Guardrail — Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js"></script>
+<style>
+  :root{
+    --bg:#0B0E11;
+    --panel:#12161B;
+    --panel-raised:#161B21;
+    --border:#1E242B;
+    --border-soft:#191F26;
+    --text:#E6E9EC;
+    --muted:#8B95A1;
+    --muted-2:#5C6672;
+    --amber:#E8A33D;
+    --amber-dim:#4A3A1E;
+    --green:#3DDC97;
+    --green-dim:#173029;
+    --red:#FF5C5C;
+    --red-dim:#3A1C1C;
+    --blue:#5B9CF5;
+    --blue-dim:#1a2a44;
+    --radius:10px;
+    --mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+    --sans:'Inter',-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(232,163,61,0.06), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(91,156,245,0.05), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+  }
+  ::selection{background:rgba(232,163,61,0.3);}
+  ::-webkit-scrollbar{width:10px;height:10px;}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:6px;}
+  ::-webkit-scrollbar-track{background:transparent;}
+
+  .signal-strip{height:3px;width:100%;display:flex;}
+  .signal-strip span{flex:1;transition:opacity .4s ease;}
+  .sig-block{background:var(--red);}
+  .sig-hitl{background:var(--amber);}
+  .sig-allow{background:var(--green);}
+  .sig-idle{background:var(--border);}
+
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;border-bottom:1px solid var(--border-soft);
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:30px;height:30px;border-radius:7px;
+    background:linear-gradient(155deg,#1a1f26,#0d1013);
+    border:1px solid var(--border);
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-weight:600;font-size:13px;color:var(--amber);
+  }
+  .brand-text h1{font-size:14.5px;font-weight:600;margin:0;letter-spacing:.2px;}
+  .brand-text p{margin:0;font-size:11.5px;color:var(--muted-2);font-family:var(--mono);}
+  .conn{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--muted);}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--muted-2);box-shadow:0 0 0 3px transparent;}
+  .dot.on{background:var(--green);box-shadow:0 0 0 3px var(--green-dim);}
+  .dot.off{background:var(--red);box-shadow:0 0 0 3px var(--red-dim);}
+
+  .btn{
+    font-family:var(--sans);font-size:12.5px;font-weight:600;
+    background:var(--panel-raised);border:1px solid var(--border);
+    color:var(--text);padding:7px 13px;border-radius:7px;cursor:pointer;
+    transition:border-color .15s ease,transform .1s ease;
+  }
+  .btn:hover{border-color:#333c46;}
+  .btn:active{transform:scale(0.98);}
+  .btn-ghost{background:transparent;}
+  .btn:disabled{opacity:0.45;cursor:not-allowed;transform:none;}
+
+  .shell{display:flex;min-height:calc(100vh - 55px);}
+  nav{
+    width:200px;border-right:1px solid var(--border-soft);
+    padding:20px 10px;flex-shrink:0;
+  }
+  nav button{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:transparent;border:none;color:var(--muted);
+    font-family:var(--sans);font-size:13px;font-weight:500;
+    padding:9px 12px;border-radius:7px;cursor:pointer;margin-bottom:2px;
+  }
+  nav button .n{font-family:var(--mono);font-size:10.5px;color:var(--muted-2);width:16px;}
+  nav button:hover{background:var(--panel);color:var(--text);}
+  nav button.active{background:var(--panel-raised);color:var(--text);box-shadow:inset 2px 0 0 var(--amber);}
+  nav button.active .n{color:var(--amber);}
+  .pending-badge{
+    margin-left:auto;background:var(--amber-dim);color:var(--amber);
+    font-family:var(--mono);font-size:10.5px;font-weight:600;
+    padding:1px 6px;border-radius:20px;min-width:16px;text-align:center;
+  }
+
+  main{flex:1;padding:26px 32px 60px;max-width:1220px;}
+  .view{display:none;}
+  .view.active{display:block;animation:fade .25s ease;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  h2.title{font-size:18px;margin:0 0 4px;font-weight:600;}
+  p.sub{margin:0 0 22px;color:var(--muted);font-size:13px;}
+
+  .grid{display:grid;gap:14px;}
+  .grid-4{grid-template-columns:repeat(4,1fr);}
+  .grid-3{grid-template-columns:repeat(3,1fr);}
+  .grid-2{grid-template-columns:repeat(2,1fr);}
+  @media(max-width:900px){
+    .grid-4,.grid-3{grid-template-columns:repeat(2,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+  }
+
+  .card{
+    background:var(--panel);border:1px solid var(--border-soft);
+    border-radius:var(--radius);padding:16px 18px;
+  }
+  .stat-label{font-size:11px;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono);margin-bottom:8px;}
+  .stat-value{font-size:24px;font-weight:600;font-family:var(--mono);}
+  .stat-value.amber{color:var(--amber);}
+  .stat-value.green{color:var(--green);}
+  .stat-value.red{color:var(--red);}
+  .stat-value.blue{color:var(--blue);}
+
+  .panel-title{font-size:12px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:28px 0 12px;}
+
+  .hitl-card{
+    background:var(--panel);border:1px solid var(--border-soft);border-left:3px solid var(--amber);
+    border-radius:var(--radius);padding:16px 18px;margin-bottom:12px;
+  }
+  .hitl-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+  .hitl-tool{font-family:var(--mono);font-size:14.5px;font-weight:600;color:var(--text);}
+  .hitl-meta{font-size:11.5px;color:var(--muted-2);margin-top:3px;font-family:var(--mono);}
+  .hitl-reason{font-size:13px;color:var(--muted);margin:10px 0 12px;line-height:1.5;}
+  .kv-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;margin-bottom:12px;}
+  .kv-grid div{font-size:12px;}
+  .kv-grid .k{color:var(--muted-2);}
+  pre.args{
+    background:#0A0D10;border:1px solid var(--border-soft);border-radius:7px;
+    padding:10px 12px;font-family:var(--mono);font-size:12px;color:#B7D6C3;
+    margin:0 0 12px;overflow-x:auto;max-height:160px;
+  }
+  .hitl-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .btn-approve{background:var(--green-dim);border:1px solid #1f4f3f;color:var(--green);font-weight:700;}
+  .btn-approve:hover{border-color:var(--green);}
+  .btn-reject{background:var(--red-dim);border:1px solid #5a2a2a;color:var(--red);font-weight:700;}
+  .btn-reject:hover{border-color:var(--red);}
+  .expiry{font-family:var(--mono);font-size:11.5px;color:var(--muted-2);margin-left:auto;}
+  .expiry.soon{color:var(--red);}
+
+  .empty{
+    text-align:center;padding:60px 20px;color:var(--muted-2);
+    border:1px dashed var(--border);border-radius:var(--radius);
+  }
+  .empty .glyph{font-size:26px;margin-bottom:10px;font-family:var(--mono);color:var(--muted-2);}
+
+  .badge{
+    display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:700;
+    padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:.03em;
+  }
+  .b-block{background:var(--red-dim);color:var(--red);}
+  .b-hitl{background:var(--amber-dim);color:var(--amber);}
+  .b-allow{background:var(--green-dim);color:var(--green);}
+  .b-approved{background:var(--green-dim);color:var(--green);}
+  .b-rejected{background:var(--red-dim);color:var(--red);}
+  .b-expired{background:var(--border);color:var(--muted);}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  thead th{
+    text-align:left;font-family:var(--mono);font-size:10.5px;color:var(--muted-2);
+    text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--border);
+  }
+  tbody td{padding:10px 10px;border-bottom:1px solid var(--border-soft);vertical-align:top;}
+  tbody tr:hover{background:var(--panel);cursor:pointer;}
+  td.mono{font-family:var(--mono);font-size:11.5px;color:var(--muted);}
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap;}
+  input,select,textarea{
+    background:var(--panel-raised);border:1px solid var(--border);color:var(--text);
+    padding:8px 11px;border-radius:7px;font-family:var(--sans);font-size:12.5px;
+  }
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amber);}
+  textarea{font-family:var(--mono);font-size:12px;width:100%;resize:vertical;}
+  label.f{display:block;font-size:11px;color:var(--muted-2);margin:0 0 5px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;}
+
+  .rule-card{
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);
+    padding:14px 16px;margin-bottom:10px;
+  }
+  .rule-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .rule-id{font-family:var(--mono);font-size:13px;font-weight:600;}
+  .rule-desc{font-size:12.5px;color:var(--muted);margin-bottom:8px;}
+  .rule-tags{display:flex;gap:6px;flex-wrap:wrap;font-family:var(--mono);font-size:10.5px;}
+  .tag{background:var(--panel-raised);border:1px solid var(--border);padding:2px 8px;border-radius:5px;color:var(--muted);}
+
+  .gate{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .gate-card{
+    width:100%;max-width:420px;background:var(--panel);border:1px solid var(--border-soft);
+    border-radius:14px;padding:32px;
+  }
+  .gate-card h1{font-size:16px;margin:0 0 4px;}
+  .gate-card p{font-size:12.5px;color:var(--muted);margin:0 0 22px;line-height:1.5;}
+  .gate-card label.f{margin-top:14px;}
+  .gate-card input{width:100%;margin-top:2px;}
+  .gate-card .btn{width:100%;margin-top:22px;padding:10px;background:var(--amber-dim);border:1px solid #5a4420;color:var(--amber);font-weight:700;font-size:13px;}
+  .gate-card .btn:hover{border-color:var(--amber);}
+  .gate-note{font-size:11px;color:var(--muted-2);margin-top:14px;line-height:1.5;}
+  .gate-err{color:var(--red);font-size:12px;margin-top:10px;display:none;}
+
+  .split{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  @media(max-width:900px){.split{grid-template-columns:1fr;}}
+  .response-box{
+    background:#0A0D10;border:1px solid var(--border-soft);border-radius:8px;
+    padding:12px;font-family:var(--mono);font-size:12px;white-space:pre-wrap;word-break:break-all;
+    max-height:400px;overflow:auto;color:var(--muted);
+  }
+  .response-box.ok{color:#B7D6C3;}
+  .response-box.err{color:#FFB3B3;}
+
+  .toast{
+    position:fixed;bottom:22px;right:22px;background:var(--panel-raised);border:1px solid var(--border);
+    padding:11px 16px;border-radius:8px;font-size:12.5px;box-shadow:0 8px 24px rgba(0,0,0,0.4);
+    display:none;align-items:center;gap:8px;z-index:50;
+  }
+
+  .security-notice{
+    background:var(--blue-dim);border:1px solid #2a3a5a;border-radius:var(--radius);
+    padding:12px 16px;margin-bottom:20px;font-size:12px;color:var(--blue);line-height:1.5;
+  }
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;
+    display:none;align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-overlay.open{display:flex;}
+  .modal{
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:14px;
+    padding:28px;max-width:600px;width:100%;max-height:80vh;overflow:auto;
+  }
+  .modal h3{margin:0 0 16px;font-size:15px;}
+  .modal-close{float:right;background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;}
+  .modal-close:hover{color:var(--text);}
+
+  .approve-section{
+    background:#0A0D10;border:1px solid var(--border-soft);border-radius:8px;
+    padding:14px;margin-top:12px;
+  }
+  .approve-section label.f{margin-top:10px;}
+  .approve-section input{width:100%;margin-top:2px;}
+  .approve-warning{
+    background:var(--amber-dim);border:1px solid #5a4420;border-radius:6px;
+    padding:8px 12px;font-size:12px;color:var(--amber);margin-top:10px;line-height:1.5;
+  }
+  .execute-result{
+    background:#0A0D10;border:1px solid var(--border-soft);border-radius:8px;
+    padding:12px;margin-top:12px;font-family:var(--mono);font-size:12px;
+    white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto;color:#B7D6C3;
+  }
+
+  .scenario-btn{
+    font-family:var(--mono);font-size:11px;font-weight:600;
+    background:var(--panel);border:1px solid var(--border);color:var(--muted);
+    padding:6px 10px;border-radius:6px;cursor:pointer;
+    transition:border-color .15s ease;
+  }
+  .scenario-btn:hover{border-color:var(--amber);color:var(--text);}
+  .scenario-btn.active{border-color:var(--amber);color:var(--amber);background:var(--amber-dim);}
+
+  .execute-warning{
+    background:var(--red-dim);border:1px solid #5a2a2a;border-radius:8px;
+    padding:10px 14px;font-size:12px;color:var(--red);margin-bottom:14px;line-height:1.5;
+    display:none;
+  }
+  .execute-warning.visible{display:block;}
+
+  .source-note{
+    font-size:11.5px;color:var(--muted-2);font-family:var(--mono);
+    padding:10px 14px;background:var(--panel);border:1px solid var(--border-soft);
+    border-radius:7px;margin-bottom:16px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= CONNECT GATE ================= -->
+<div id="gate" class="gate">
+  <div class="gate-card">
+    <h1>Action Guardrail Console</h1>
+    <p>Connect to your deployed enforcement gateway to review pending approvals, inspect the audit trail, and test policy decisions.</p>
+    <label class="f">Guardrail API URL</label>
+    <input id="in-url" placeholder="https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com" />
+    <label class="f">API Key (x-api-key)</label>
+    <input id="in-key" type="password" placeholder="dev-local-key" />
+    <button class="btn" onclick="connect()">Connect</button>
+    <div id="gate-err" class="gate-err">Could not reach that URL with that key. Check the console for details.</div>
+    <div class="gate-note">Stored only in this browser tab's sessionStorage — never sent anywhere but your API's <code>x-api-key</code> header. Clear it any time with Disconnect.</div>
+  </div>
+</div>
+
+<!-- ================= APP SHELL ================= -->
+<div id="app" style="display:none;">
+  <div class="signal-strip" id="signal-strip">
+    <span class="sig-idle"></span><span class="sig-idle"></span><span class="sig-idle"></span><span class="sig-idle"></span>
+  </div>
+  <header>
+    <div class="brand">
+      <div class="brand-mark">AG</div>
+      <div class="brand-text">
+        <h1>Action Guardrail</h1>
+        <p id="api-url-label">—</p>
+      </div>
+    </div>
+    <div class="conn">
+      <span class="dot" id="conn-dot"></span>
+      <span id="conn-label">Checking…</span>
+      <button class="btn btn-ghost" onclick="disconnect()">Disconnect</button>
+    </div>
+  </header>
+
+  <div class="shell">
+    <nav>
+      <button class="active" data-view="overview" onclick="showView('overview')"><span class="n">01</span>Overview</button>
+      <button data-view="approvals" onclick="showView('approvals')"><span class="n">02</span>Approvals<span class="pending-badge" id="nav-pending-badge" style="display:none;">0</span></button>
+      <button data-view="audit" onclick="showView('audit')"><span class="n">03</span>Audit Log</button>
+      <button data-view="policies" onclick="showView('policies')"><span class="n">04</span>Policies</button>
+      <button data-view="test" onclick="showView('test')"><span class="n">05</span>Test Console</button>
+    </nav>
+
+    <main>
+      <!-- OVERVIEW -->
+      <div class="view active" id="view-overview">
+        <h2 class="title">Overview</h2>
+        <p class="sub">Live status of the deployed enforcement gateway.</p>
+        <div class="grid grid-4">
+          <div class="card">
+            <div class="stat-label">Health</div>
+            <div class="stat-value" id="ov-health">—</div>
+          </div>
+          <div class="card">
+            <div class="stat-label">Rules loaded</div>
+            <div class="stat-value" id="ov-rules">—</div>
+          </div>
+          <div class="card">
+            <div class="stat-label">Default action</div>
+            <div class="stat-value amber" id="ov-default">—</div>
+          </div>
+          <div class="card">
+            <div class="stat-label">Pending approvals</div>
+            <div class="stat-value amber" id="ov-pending">—</div>
+          </div>
+        </div>
+        <div class="panel-title">Verdict distribution (last 20 audit records)</div>
+        <div class="grid grid-4">
+          <div class="card"><div class="stat-label">Blocked</div><div class="stat-value red" id="ov-blocked">—</div></div>
+          <div class="card"><div class="stat-label">Required HITL</div><div class="stat-value amber" id="ov-hitl">—</div></div>
+          <div class="card"><div class="stat-label">Allowed / Executed</div><div class="stat-value green" id="ov-allowed">—</div></div>
+          <div class="card"><div class="stat-label">Dry run mode</div><div class="stat-value" id="ov-dryrun">—</div></div>
+        </div>
+        <div class="panel-title">Recent actions</div>
+        <div id="ov-recent-actions" style="font-size:12.5px;color:var(--muted);">Loading…</div>
+      </div>
+
+      <!-- APPROVALS -->
+      <div class="view" id="view-approvals">
+        <h2 class="title">Pending Approvals</h2>
+        <p class="sub">Actions the policy engine routed to <code>require_hitl</code>. Approve to execute now, or reject to permanently block.</p>
+        <div class="toolbar">
+          <button class="btn" onclick="loadHitl()">Refresh</button>
+          <span style="font-size:11.5px;color:var(--muted-2);font-family:var(--mono);">auto-refreshing every 8s</span>
+        </div>
+        <div id="hitl-list"></div>
+      </div>
+
+      <!-- AUDIT -->
+      <div class="view" id="view-audit">
+        <h2 class="title">Audit Log</h2>
+        <p class="sub">Every evaluated action — blocked, held for review, or logged and allowed.</p>
+        <div class="toolbar">
+          <select id="audit-agent" style="min-width:180px;">
+            <option value="">All agents</option>
+          </select>
+          <input id="audit-tool" placeholder="Tool name" style="width:140px;" />
+          <input id="audit-action-type" placeholder="Action type" style="width:140px;" />
+          <select id="audit-verdict" style="min-width:130px;">
+            <option value="">All verdicts</option>
+            <option value="block">block</option>
+            <option value="require_hitl">require_hitl</option>
+            <option value="log_and_allow">log_and_allow</option>
+          </select>
+          <input id="audit-limit" placeholder="Limit" value="50" style="width:70px;" />
+          <button class="btn" onclick="loadAudit()">Query</button>
+        </div>
+        <div id="audit-table"></div>
+      </div>
+
+      <!-- POLICIES -->
+      <div class="view" id="view-policies">
+        <h2 class="title">Policy Rules</h2>
+        <p class="sub">Currently deployed policy configuration.</p>
+        <div class="source-note">Policy source: <code>policies/policy.yaml</code> — Policies are deployed through Git → CI/CD → SAM. They are not editable at runtime.</div>
+        <div id="policies-default" class="card" style="margin-bottom:16px;"></div>
+        <div id="policies-list"></div>
+      </div>
+
+      <!-- TEST -->
+      <div class="view" id="view-test">
+        <h2 class="title">Test Console</h2>
+        <p class="sub">Send a synthetic action through the gateway to see how policy would evaluate it.</p>
+        <div class="split">
+          <div class="card">
+            <label class="f">Quick scenarios</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+              <button class="scenario-btn" onclick="loadScenario('bulk-delete')">Block bulk delete</button>
+              <button class="scenario-btn" onclick="loadScenario('small-delete')">Allow small delete</button>
+              <button class="scenario-btn" onclick="loadScenario('external-email')">External email → HITL</button>
+              <button class="scenario-btn" onclick="loadScenario('internal-email')">Internal email → Allow</button>
+              <button class="scenario-btn" onclick="loadScenario('unknown-tool')">Unknown tool → Block</button>
+            </div>
+
+            <div class="execute-warning" id="t-exec-warning">
+              ⚠ <strong>Execute mode</strong> — This will actually run the tool action via the backend. Use with caution.
+            </div>
+
+            <label class="f">Endpoint</label>
+            <select id="t-endpoint" style="width:100%;margin-bottom:12px;" onchange="onEndpointChange()">
+              <option value="/v1/actions/evaluate">/v1/actions/evaluate — evaluate only, no execution</option>
+              <option value="/v1/actions/execute">/v1/actions/execute — real enforcement (may execute)</option>
+            </select>
+            <label class="f">tool_name</label>
+            <input id="t-tool" style="width:100%;margin-bottom:12px;" placeholder="send_email" value="send_email" />
+            <label class="f">agent_id</label>
+            <input id="t-agent" style="width:100%;margin-bottom:12px;" placeholder="console-test" value="console-test" />
+            <label class="f">arguments (JSON)</label>
+            <textarea id="t-args" rows="5" style="margin-bottom:12px;">{"recipient_domain": "gmail.com", "subject": "Q3 report"}</textarea>
+            <label class="f">context (JSON, optional)</label>
+            <textarea id="t-context" rows="2" style="margin-bottom:16px;">{}</textarea>
+            <button class="btn" style="width:100%;" onclick="runTest()">Send</button>
+          </div>
+          <div class="card">
+            <label class="f">Response</label>
+            <div class="response-box" id="t-response" style="margin-top:6px;">Nothing sent yet.</div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ================= AUDIT DETAIL MODAL ================= -->
+<div class="modal-overlay" id="audit-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeAuditModal()">&times;</button>
+    <h3>Audit Record Detail</h3>
+    <div id="audit-modal-content"></div>
+  </div>
+</div>
+
+<!-- ================= HITL APPROVE MODAL ================= -->
+<div class="modal-overlay" id="hitl-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeHitlModal()">&times;</button>
+    <h3 id="hitl-modal-title">Approve &amp; Execute</h3>
+    <div id="hitl-modal-content"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let API_URL = '';
+let API_KEY = '';
+let pollTimer = null;
+let knownAgents = [];
+
+function toast(msg, ok=true){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'flex';
+  t.style.borderColor = ok ? 'var(--green)' : 'var(--red)';
+  clearTimeout(t._hideTimer);
+  t._hideTimer = setTimeout(()=>{ t.style.display='none'; }, 3200);
+}
+
+async function api(path, opts={}){
+  const res = await fetch(API_URL.replace(/\/$/,'') + path, {
+    ...opts,
+    headers: {
+      'x-api-key': API_KEY,
+      'Content-Type': 'application/json',
+      ...(opts.headers||{})
+    }
+  });
+  let body = null;
+  try { body = await res.json(); } catch(e) { /* no body */ }
+  if(!res.ok){
+    const err = new Error((body && (body.detail || body.message)) || res.statusText);
+    err.status = res.status; err.body = body;
+    throw err;
+  }
+  return body;
+}
+
+function connect(){
+  const url = document.getElementById('in-url').value.trim();
+  const key = document.getElementById('in-key').value.trim();
+  if(!url || !key){ showGateErr('Enter both the API URL and the API key.'); return; }
+  API_URL = url; API_KEY = key;
+  document.getElementById('api-url-label').textContent = url.replace(/^https?:\/\//,'');
+  fetch(API_URL.replace(/\/$/,'') + '/health')
+    .then(r => r.json())
+    .then(async (h) => {
+      try {
+        await api('/v1/policies');
+      } catch(e){
+        showGateErr('URL reachable, but the API key was rejected (401). Check the key.');
+        return;
+      }
+      sessionStorage.setItem('gr_url', API_URL);
+      sessionStorage.setItem('gr_key', API_KEY);
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      boot();
+    })
+    .catch(err => {
+      showGateErr('Could not reach that URL. If this is a browser CORS error, the Lambda needs CORSMiddleware enabled and redeployed — see setup notes.');
+      console.error(err);
+    });
+}
+
+function showGateErr(msg){
+  const e = document.getElementById('gate-err');
+  e.textContent = msg; e.style.display = 'block';
+}
+
+function disconnect(){
+  sessionStorage.removeItem('gr_url'); sessionStorage.removeItem('gr_key');
+  clearInterval(pollTimer);
+  location.reload();
+}
+
+function showView(name){
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+  document.querySelector(`nav button[data-view="${name}"]`).classList.add('active');
+  if(name === 'approvals') loadHitl();
+  if(name === 'audit') loadAudit();
+  if(name === 'policies') loadPolicies();
+  if(name === 'overview') loadOverview();
+}
+
+function boot(){
+  loadOverview();
+  loadHitl();
+  loadAudit();
+  pollTimer = setInterval(loadHitlQuiet, 8000);
+}
+
+/* ---------------- Overview ---------------- */
+async function loadOverview(){
+  try{
+    const h = await fetch(API_URL + '/health').then(r=>r.json());
+    document.getElementById('ov-health').textContent = h.status === 'ok' ? 'Online' : h.status;
+    document.getElementById('ov-health').className = 'stat-value ' + (h.status === 'ok' ? 'green' : 'red');
+    document.getElementById('ov-rules').textContent = h.rules_loaded;
+    document.getElementById('ov-default').textContent = h.default_action;
+    document.getElementById('ov-dryrun').textContent = h.dry_run ? 'ON' : 'off';
+    setConn(true);
+  }catch(e){ setConn(false); }
+
+  try{
+    const hitl = await api('/v1/hitl');
+    const n = (hitl.pending||[]).length;
+    document.getElementById('ov-pending').textContent = n;
+    updateNavBadge(n);
+    updateSignal(hitl.pending||[]);
+  }catch(e){}
+
+  try{
+    const audit = await api('/v1/audit?limit=20');
+    const items = audit.items || [];
+    const counts = {block:0, require_hitl:0, log_and_allow:0};
+    items.forEach(i => { if(counts[i.verdict] !== undefined) counts[i.verdict]++; });
+    document.getElementById('ov-blocked').textContent = counts.block;
+    document.getElementById('ov-hitl').textContent = counts.require_hitl;
+    document.getElementById('ov-allowed').textContent = counts.log_and_allow;
+
+    const agents = new Set();
+    items.forEach(i => { if(i.agent_id) agents.add(i.agent_id); });
+    updateAgentDropdown(agents);
+
+    if(items.length > 0){
+      const recent = items.slice(0,5).map(i => {
+        const vBadge = verdictBadge(i.verdict);
+        return `<div style="padding:6px 0;border-bottom:1px solid var(--border-soft);display:flex;gap:10px;align-items:center;">
+          <span class="mono" style="min-width:130px;">${new Date(i.timestamp).toLocaleString()}</span>
+          ${vBadge}
+          <span class="mono">${escapeHtml(i.tool_name)}</span>
+          <span style="color:var(--muted-2);font-size:11px;">${escapeHtml(i.agent_id)}</span>
+        </div>`;
+      }).join('');
+      document.getElementById('ov-recent-actions').innerHTML = recent;
+    } else {
+      document.getElementById('ov-recent-actions').innerHTML = '<div style="color:var(--muted-2);padding:10px 0;">No recent actions.</div>';
+    }
+  }catch(e){}
+}
+
+function setConn(ok){
+  document.getElementById('conn-dot').className = 'dot ' + (ok ? 'on' : 'off');
+  document.getElementById('conn-label').textContent = ok ? 'Connected' : 'Unreachable';
+}
+
+function updateNavBadge(n){
+  const b = document.getElementById('nav-pending-badge');
+  if(n > 0){ b.style.display='inline-block'; b.textContent = n; } else { b.style.display='none'; }
+}
+
+function updateSignal(pending){
+  const lights = document.querySelectorAll('#signal-strip span');
+  lights.forEach(l => l.className = pending.length > 0 ? 'sig-hitl' : 'sig-idle');
+}
+
+function updateAgentDropdown(extraAgents){
+  if(extraAgents) extraAgents.forEach(a => knownAgents.add(a));
+  const sel = document.getElementById('audit-agent');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All agents</option>';
+  Array.from(knownAgents).sort().forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+
+/* ---------------- Approvals (HITL) ---------------- */
+async function loadHitl(){
+  const box = document.getElementById('hitl-list');
+  box.innerHTML = '<div class="empty">Loading…</div>';
+  await loadHitlQuiet(box);
+}
+
+async function loadHitlQuiet(boxOverride){
+  const box = boxOverride && boxOverride.innerHTML !== undefined ? boxOverride : document.getElementById('hitl-list');
+  try{
+    const data = await api('/v1/hitl');
+    const pending = data.pending || [];
+    updateNavBadge(pending.length);
+    document.getElementById('ov-pending') && (document.getElementById('ov-pending').textContent = pending.length);
+    updateSignal(pending);
+    if(pending.length === 0){
+      box.innerHTML = '<div class="empty"><div class="glyph">·</div>No pending approvals. Actions routed to require_hitl will appear here.</div>';
+      return;
+    }
+    pending.sort((a,b)=> new Date(a.created_at) - new Date(b.created_at));
+    box.innerHTML = pending.map(renderHitlCard).join('');
+  }catch(e){
+    if(!boxOverride) box.innerHTML = `<div class="empty">Could not load approvals — ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderHitlCard(item){
+  let args = item.arguments;
+  try{ if(typeof args === 'string') args = JSON.parse(args); }catch(e){}
+  const created = new Date(item.created_at);
+  const expires = new Date(item.expires_at);
+  const now = Date.now();
+  const remaining = expires - now;
+  const soon = remaining < 5*60*1000;
+  const remainingStr = remaining > 0 ? formatDuration(remaining) : 'expired';
+  return `
+  <div class="hitl-card" id="hitl-${item.hitl_id}">
+    <div class="hitl-top">
+      <div>
+        <div class="hitl-tool">${escapeHtml(item.tool_name)}</div>
+        <div class="hitl-meta">
+          ${escapeHtml(item.action_type || 'unknown')} · agent: ${escapeHtml(item.agent_id)} · ${escapeHtml(item.hitl_id)}
+        </div>
+      </div>
+      <div class="expiry ${soon?'soon':''}">${remainingStr} remaining</div>
+    </div>
+    <div class="hitl-reason">${escapeHtml(item.reason || '')}</div>
+    <div class="kv-grid">
+      <div><span class="k">Created:</span> ${created.toLocaleString()}</div>
+      <div><span class="k">Expires:</span> ${expires.toLocaleString()}</div>
+      <div><span class="k">Policy rule:</span> ${escapeHtml((item.matched_rule_ids||[]).join(', ') || '—')}</div>
+      <div><span class="k">Request ID:</span> <span style="font-family:var(--mono);font-size:11px;">${escapeHtml(item.request_id||'—')}</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-bottom:6px;">ARGUMENTS</div>
+    <pre class="args">${escapeHtml(JSON.stringify(args, null, 2))}</pre>
+    <div class="hitl-actions">
+      <button class="btn btn-approve" onclick="openHitlApprove('${item.hitl_id}', this, ${escapeHtml(JSON.stringify(JSON.stringify(args)))}, '${escapeHtml(item.tool_name)}', '${escapeHtml(item.agent_id)}', '${escapeHtml(item.action_type||'')}')">Approve &amp; Execute</button>
+      <button class="btn btn-reject" onclick="resolveHitl('${item.hitl_id}','reject', this)">Reject</button>
+      <div class="expiry ${soon?'soon':''}" style="margin-left:auto;font-size:11px;">expires ${expires.toLocaleTimeString()}</div>
+    </div>
+  </div>`;
+}
+
+function formatDuration(ms){
+  const s = Math.floor(ms/1000);
+  if(s < 60) return s + 's';
+  const m = Math.floor(s/60);
+  if(m < 60) return m + 'm ' + (s%60) + 's';
+  const h = Math.floor(m/60);
+  return h + 'h ' + (m%60) + 'm';
+}
+
+function openHitlApprove(hitlId, btn, argsStr, toolName, agentId, actionType){
+  let args;
+  try{ args = JSON.parse(argsStr); }catch(e){ args = {}; }
+  const argsHtml = escapeHtml(JSON.stringify(args, null, 2));
+  document.getElementById('hitl-modal-title').textContent = 'Approve & Execute: ' + toolName;
+  document.getElementById('hitl-modal-content').innerHTML = `
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+      You are about to approve and <strong>execute</strong> this action. This will call the backend tool adapter.
+    </div>
+    <div class="kv-grid" style="margin-bottom:12px;">
+      <div><span class="k">Tool:</span> <strong>${escapeHtml(toolName)}</strong></div>
+      <div><span class="k">Agent:</span> ${escapeHtml(agentId)}</div>
+      <div><span class="k">Action type:</span> ${escapeHtml(actionType || '—')}</div>
+      <div><span class="k">HITL ID:</span> <span style="font-family:var(--mono);font-size:11px;">${escapeHtml(hitlId)}</span></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-bottom:4px;">ARGUMENTS</div>
+    <pre class="args" style="margin-bottom:12px;">${argsHtml}</pre>
+    <div class="approve-warning">This approval will execute the action immediately. The result will be returned below.</div>
+    <div class="approve-section">
+      <label class="f">Reviewer name</label>
+      <input id="hitl-reviewer" value="console-reviewer" />
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button class="btn btn-approve" onclick="confirmHitlApprove('${hitlId}', this)">Confirm Approve &amp; Execute</button>
+        <button class="btn" onclick="closeHitlModal()">Cancel</button>
+      </div>
+      <div id="hitl-approve-result" style="display:none;margin-top:12px;"></div>
+    </div>
+  `;
+  document.getElementById('hitl-modal').classList.add('open');
+}
+
+function closeHitlModal(){
+  document.getElementById('hitl-modal').classList.remove('open');
+}
+
+async function confirmHitlApprove(hitlId, btn){
+  const reviewer = document.getElementById('hitl-reviewer').value.trim() || 'console-reviewer';
+  btn.disabled = true;
+  btn.textContent = 'Executing…';
+  try{
+    const q = `?approved_by=${encodeURIComponent(reviewer)}`;
+    const res = await api(`/v1/hitl/${hitlId}/approve${q}`, { method:'POST' });
+    const resultBox = document.getElementById('hitl-approve-result');
+    resultBox.style.display = 'block';
+    resultBox.innerHTML = `<div style="font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-bottom:4px;">EXECUTION RESULT</div>
+      <div class="execute-result">${escapeHtml(JSON.stringify(res, null, 2))}</div>`;
+    btn.textContent = 'Approved & Executed';
+    toast('Approved — action executed successfully', true);
+    setTimeout(() => {
+      closeHitlModal();
+      loadHitl();
+      loadOverview();
+    }, 2000);
+  }catch(e){
+    toast(`Failed: ${e.message}`, false);
+    btn.disabled = false;
+    btn.textContent = 'Confirm Approve & Execute';
+    const resultBox = document.getElementById('hitl-approve-result');
+    resultBox.style.display = 'block';
+    resultBox.innerHTML = `<div class="execute-result" style="color:#FFB3B3;">Error: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+async function resolveHitl(id, action, btn){
+  const who = prompt(`Reject as (reviewer name):`, 'console-reviewer');
+  if(who === null) return;
+  btn.closest('.hitl-actions').querySelectorAll('button').forEach(b => b.disabled = true);
+  try{
+    const q = who ? `?rejected_by=${encodeURIComponent(who)}` : '';
+    const res = await api(`/v1/hitl/${id}/${action}${q}`, { method:'POST' });
+    toast(`Rejected — action blocked`, true);
+    loadHitl();
+    loadOverview();
+  }catch(e){
+    toast(`Failed: ${e.message}`, false);
+    btn.closest('.hitl-actions').querySelectorAll('button').forEach(b => b.disabled = false);
+  }
+}
+
+/* ---------------- Audit ---------------- */
+async function loadAudit(){
+  const box = document.getElementById('audit-table');
+  box.innerHTML = '<div class="empty">Loading…</div>';
+  const agent = document.getElementById('audit-agent').value.trim();
+  const tool = document.getElementById('audit-tool').value.trim().toLowerCase();
+  const actionType = document.getElementById('audit-action-type').value.trim().toLowerCase();
+  const verdict = document.getElementById('audit-verdict').value;
+  const limit = document.getElementById('audit-limit').value.trim() || '50';
+  try{
+    const q = new URLSearchParams({limit});
+    if(agent) q.set('agent_id', agent);
+    const data = await api('/v1/audit?' + q.toString());
+    let items = data.items || [];
+
+    if(tool) items = items.filter(i => (i.tool_name||'').toLowerCase().includes(tool));
+    if(actionType) items = items.filter(i => (i.action_type||'').toLowerCase().includes(actionType));
+    if(verdict) items = items.filter(i => i.verdict === verdict);
+
+    const agents = new Set();
+    items.forEach(i => { if(i.agent_id) agents.add(i.agent_id); });
+    updateAgentDropdown(agents);
+
+    if(items.length === 0){
+      box.innerHTML = '<div class="empty"><div class="glyph">·</div>No audit records match.</div>';
+      return;
+    }
+    items.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+    box.innerHTML = `<table><thead><tr>
+      <th>Timestamp</th><th>Agent</th><th>Tool</th><th>Action type</th><th>Verdict</th><th>Executed</th><th>Rules</th>
+    </tr></thead><tbody>${items.map(renderAuditRow).join('')}</tbody></table>`;
+  }catch(e){
+    box.innerHTML = `<div class="empty">Could not load audit log — ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function verdictBadge(v){
+  const map = {block:['b-block','block'], require_hitl:['b-hitl','require_hitl'], log_and_allow:['b-allow','log_and_allow']};
+  const [cls,label] = map[v] || ['b-expired', v];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+function renderAuditRow(i){
+  const rules = (i.matched_rule_ids || []).join(', ') || '—';
+  return `<tr onclick="openAuditDetail(${escapeHtml(JSON.stringify(JSON.stringify(i)))})">
+    <td class="mono">${new Date(i.timestamp).toLocaleString()}</td>
+    <td class="mono">${escapeHtml(i.agent_id)}</td>
+    <td class="mono">${escapeHtml(i.tool_name)}</td>
+    <td class="mono">${escapeHtml(i.action_type||'—')}</td>
+    <td>${verdictBadge(i.verdict)}</td>
+    <td class="mono">${i.executed ? 'yes' : 'no'}</td>
+    <td class="mono">${escapeHtml(rules)}</td>
+  </tr>`;
+}
+
+function openAuditDetail(jsonStr){
+  let item;
+  try{ item = JSON.parse(jsonStr); }catch(e){ return; }
+  let args = item.arguments;
+  try{ if(typeof args === 'string') args = JSON.parse(args); }catch(e){}
+  let execResult = item.execution_result;
+  try{ if(typeof execResult === 'string' && execResult) execResult = JSON.parse(execResult); }catch(e){}
+
+  const content = `
+    <div class="kv-grid" style="margin-bottom:14px;">
+      <div><span class="k">Timestamp:</span> ${new Date(item.timestamp).toLocaleString()}</div>
+      <div><span class="k">Agent:</span> ${escapeHtml(item.agent_id)}</div>
+      <div><span class="k">Tool:</span> ${escapeHtml(item.tool_name)}</div>
+      <div><span class="k">Action type:</span> ${escapeHtml(item.action_type||'—')}</div>
+      <div><span class="k">Verdict:</span> ${verdictBadge(item.verdict)}</div>
+      <div><span class="k">Executed:</span> ${item.executed ? 'yes' : 'no'}</div>
+      <div><span class="k">Request ID:</span> <span style="font-family:var(--mono);font-size:11px;">${escapeHtml(item.request_id||'—')}</span></div>
+      <div><span class="k">Matched rules:</span> <span style="font-family:var(--mono);font-size:11px;">${escapeHtml((item.matched_rule_ids||[]).join(', ')||'—')}</span></div>
+    </div>
+    ${item.reason ? `<div style="margin-bottom:12px;font-size:12.5px;color:var(--muted);"><span class="k" style="color:var(--muted-2);">Reason:</span> ${escapeHtml(item.reason)}</div>` : ''}
+    <div style="font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-bottom:4px;">ARGUMENTS</div>
+    <pre class="args" style="margin-bottom:12px;">${escapeHtml(JSON.stringify(args, null, 2))}</pre>
+    ${execResult ? `<div style="font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-bottom:4px;">EXECUTION RESULT</div><pre class="args">${escapeHtml(JSON.stringify(execResult, null, 2))}</pre>` : ''}
+  `;
+  document.getElementById('audit-modal-content').innerHTML = content;
+  document.getElementById('audit-modal').classList.add('open');
+}
+
+function closeAuditModal(){
+  document.getElementById('audit-modal').classList.remove('open');
+}
+
+/* ---------------- Policies ---------------- */
+async function loadPolicies(){
+  const dbox = document.getElementById('policies-default');
+  const box = document.getElementById('policies-list');
+  dbox.innerHTML = 'Loading…'; box.innerHTML = '';
+  try{
+    const data = await api('/v1/policies');
+    dbox.innerHTML = `<div class="stat-label">Default action (no rule matched)</div><div class="stat-value amber" style="margin-top:6px;">${escapeHtml(data.default_action)}</div>`;
+    box.innerHTML = (data.rules||[]).map(renderRule).join('');
+  }catch(e){
+    dbox.innerHTML = `Could not load policies — ${escapeHtml(e.message)}`;
+  }
+}
+
+function renderRule(r){
+  const badgeClass = r.action === 'block' ? 'b-block' : r.action === 'require_hitl' ? 'b-hitl' : 'b-allow';
+  const conds = (r.conditions||[]).map(c => `${c.field} ${c.operator} ${JSON.stringify(c.value)}`).join(' · ');
+  return `<div class="rule-card">
+    <div class="rule-head">
+      <span class="rule-id">${escapeHtml(r.id)}</span>
+      <span class="badge ${badgeClass}">${escapeHtml(r.action)}</span>
+    </div>
+    <div class="rule-desc">${escapeHtml(r.description||'')}</div>
+    <div class="rule-tags">
+      ${r.action_type ? `<span class="tag">action_type: ${escapeHtml(r.action_type)}</span>` : ''}
+      ${(r.tool_names||[]).map(t=>`<span class="tag">tool: ${escapeHtml(t)}</span>`).join('')}
+      ${r.severity ? `<span class="tag">severity: ${escapeHtml(r.severity)}</span>` : ''}
+      ${conds ? `<span class="tag">${escapeHtml(conds)}</span>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ---------------- Test console ---------------- */
+const SCENARIOS = {
+  'bulk-delete': {
+    tool: 'db_delete', agent: 'console-test',
+    args: {"record_count": 5000, "table": "users"},
+    context: {"action_type": "database.delete"}
+  },
+  'small-delete': {
+    tool: 'db_delete', agent: 'console-test',
+    args: {"record_count": 5, "table": "sessions"},
+    context: {"action_type": "database.delete"}
+  },
+  'external-email': {
+    tool: 'send_email', agent: 'console-test',
+    args: {"recipient_domain": "gmail.com", "subject": "Q3 report"},
+    context: {"action_type": "email.send"}
+  },
+  'internal-email': {
+    tool: 'send_email', agent: 'console-test',
+    args: {"recipient_domain": "mycompany.com", "subject": "Status update"},
+    context: {"action_type": "email.send"}
+  },
+  'unknown-tool': {
+    tool: 'unknown_tool_xyz', agent: 'console-test',
+    args: {"data": "test"},
+    context: {}
+  }
+};
+
+function loadScenario(key){
+  const s = SCENARIOS[key];
+  if(!s) return;
+  document.getElementById('t-tool').value = s.tool;
+  document.getElementById('t-agent').value = s.agent;
+  document.getElementById('t-args').value = JSON.stringify(s.args, null, 2);
+  document.getElementById('t-context').value = JSON.stringify(s.context, null, 2);
+  document.getElementById('t-endpoint').value = '/v1/actions/evaluate';
+  onEndpointChange();
+  document.querySelectorAll('.scenario-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+}
+
+function onEndpointChange(){
+  const ep = document.getElementById('t-endpoint').value;
+  const warn = document.getElementById('t-exec-warning');
+  if(ep === '/v1/actions/execute'){
+    warn.classList.add('visible');
+  } else {
+    warn.classList.remove('visible');
+  }
+}
+
+async function runTest(){
+  const endpoint = document.getElementById('t-endpoint').value;
+  const box = document.getElementById('t-response');
+  box.className = 'response-box'; box.textContent = 'Sending…';
+  let args, context;
+  try{
+    args = JSON.parse(document.getElementById('t-args').value || '{}');
+    context = JSON.parse(document.getElementById('t-context').value || '{}');
+  }catch(e){
+    box.className = 'response-box err'; box.textContent = 'Invalid JSON in arguments or context.'; return;
+  }
+  const payload = {
+    tool_name: document.getElementById('t-tool').value.trim(),
+    agent_id: document.getElementById('t-agent').value.trim() || 'console-test',
+    arguments: args,
+    context: context
+  };
+  try{
+    const res = await api(endpoint, { method:'POST', body: JSON.stringify(payload) });
+    box.className = 'response-box ok';
+    box.textContent = JSON.stringify(res, null, 2);
+    loadOverview();
+  }catch(e){
+    box.className = 'response-box err';
+    box.textContent = `HTTP ${e.status || '?'}\n` + JSON.stringify(e.body || e.message, null, 2);
+  }
+}
+
+function escapeHtml(s){
+  if(s === null || s === undefined) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+/* ---------------- boot from saved session ---------------- */
+(function(){
+  const cfg = window.GUARDRAIL_CONFIG;
+  if(cfg && cfg.apiUrl && cfg.apiKey && cfg.apiKey !== 'REPLACE_ME'){
+    document.getElementById('in-url').value = cfg.apiUrl;
+    document.getElementById('in-key').value = cfg.apiKey;
+    connect();
+    return;
+  }
+  const su = sessionStorage.getItem('gr_url');
+  const sk = sessionStorage.getItem('gr_key');
+  if(su && sk){
+    document.getElementById('in-url').value = su;
+    document.getElementById('in-key').value = sk;
+    connect();
+  }
+})();
+</script>
+</body>
+</html>

@@ -67,7 +67,10 @@ jobs:
           role-session-name: GitHubActions
 
       - name: Setup SAM
-        uses: aws-actions/setup-sam@v2
+        uses: aws-actions/setup-sam@v3
+        with:
+          use-installer: true
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         run: |

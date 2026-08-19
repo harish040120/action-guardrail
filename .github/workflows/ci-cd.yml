@@ -74,7 +74,7 @@ jobs:
 
       - name: Build
         run: |
-          sam build
+          sam build --use-container
 
       - name: Deploy
         run: |

@@ -9,9 +9,17 @@ from app.core.hitl import create_hitl_request, list_pending, resolve, get_hitl_r
 from app.adapters.tools import dispatch, ToolExecutionError
 from app.core.logger import get_logger
 import os, traceback
+import json
+from fastapi.middleware.cors import CORSMiddleware
 
 log = get_logger()
 app = FastAPI(title="Action Guardrail", version="3.0.0")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 engine = PolicyEngine(os.getenv("POLICY_PATH", "policies/policy.yaml"))
 DRY_RUN = os.getenv("DRY_RUN", "false").lower() == "true"
 
@@ -102,7 +110,7 @@ def hitl_approve(hitl_id: str, approved_by: str = "reviewer"):
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
     try:
-        result = dispatch(item["action_type"], eval(item["arguments"]) if isinstance(item["arguments"], str) else item["arguments"])
+        result = dispatch(item["action_type"], json.loads(item["arguments"]) if isinstance(item["arguments"], str) else item["arguments"])
     except ToolExecutionError as e:
         raise HTTPException(status_code=502, detail=f"Tool execution failed after approval: {e}")
     return {"status": "APPROVED", "executed": True, "result": result}

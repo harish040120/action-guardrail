@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+
+Globals:
+  Function:
+    Timeout: 10
+    MemorySize: 256
+    Runtime: python3.11
+    Tracing: Active
+    Tags:
+      project: action-guardrail
+
+Parameters:
+  GuardrailApiKey:
+    Type: String
+    NoEcho: true
+
+  DryRun:
+    Type: String
+    Default: "false"
+
+Resources:
+
+  AuditLogTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: guardrail_audit_log
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: agent_id
+          AttributeType: S
+        - AttributeName: sort_key
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: agent_id
+          KeyType: HASH
+        - AttributeName: sort_key
+          KeyType: RANGE
+
+  HitlTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: guardrail_hitl_requests
+      BillingMode: PAY_PER_REQUEST
+
+      AttributeDefinitions:
+        - AttributeName: hitl_id
+          AttributeType: S
+
+      KeySchema:
+        - AttributeName: hitl_id
+          KeyType: HASH
+
+  GuardrailFunction:
+    Type: AWS::Serverless::Function
+
+    Properties:
+      Handler: app.main.handler
+      CodeUri: .
+
+      Environment:
+        Variables:
+          AUDIT_TABLE_NAME: !Ref AuditLogTable
+          HITL_TABLE_NAME: !Ref HitlTable
+          GUARDRAIL_API_KEY: !Ref GuardrailApiKey
+          DRY_RUN: !Ref DryRun
+
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AuditLogTable
+
+        - DynamoDBCrudPolicy:
+            TableName: !Ref HitlTable
+
+      Events:
+        AnyApi:
+          Type: HttpApi
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+
+Outputs:
+
+  GuardrailApiUrl:
+    Value: !Sub "https://${ServerlessHttpApi}.execute-api.${AWS::Region}.amazonaws.com"

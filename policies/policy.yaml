@@ -1,0 +1,66 @@
+version: 2
+default_action: block     # anything no rule explicitly allows/logs is BLOCKED
+
+rules:
+  - id: block-bulk-delete
+    description: "Block any DB delete where record count exceeds 100"
+    action_type: database.delete      # matches by normalized action_type...
+    tool_names: [db_delete, execute_sql, bulk_delete]   # ...OR any of these raw tool names
+    conditions:
+      - field: arguments.record_count
+        operator: greater_than
+        value: 100
+    action: block
+    severity: high
+
+  - id: allow-small-delete
+    description: "Allow DB deletes of 100 records or fewer"
+    action_type: database.delete
+    tool_names: [db_delete, execute_sql, bulk_delete]
+    conditions:
+      - field: arguments.record_count
+        operator: less_than
+        value: 101
+    action: log_and_allow
+    severity: low
+
+  - id: hitl-external-email
+    description: "Require human approval for email to an external domain"
+    action_type: email.send
+    tool_names: [send_email]
+    conditions:
+      - field: arguments.recipient_domain
+        operator: not_in
+        value: ["mycompany.com"]
+    action: require_hitl
+    severity: medium
+
+  - id: allow-internal-email
+    description: "Allow email to internal domain"
+    action_type: email.send
+    tool_names: [send_email]
+    conditions:
+      - field: arguments.recipient_domain
+        operator: in
+        value: ["mycompany.com"]
+    action: log_and_allow
+    severity: none
+
+  - id: log-confidential-read
+    description: "Log and allow reads of paths containing 'confidential'"
+    action_type: file.read
+    tool_names: [read_file]
+    conditions:
+      - field: arguments.path
+        operator: contains
+        value: "confidential"
+    action: log_and_allow
+    severity: low
+
+  - id: allow-normal-read
+    description: "Allow ordinary file reads"
+    action_type: file.read
+    tool_names: [read_file]
+    conditions: []
+    action: log_and_allow
+    severity: none

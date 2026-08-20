@@ -40,6 +40,14 @@ def list_pending() -> list:
     now = datetime.now(timezone.utc).isoformat()
     return [i for i in items if i["expires_at"] > now]
 
+def list_hitl_history() -> list:
+    resp = _table().scan(FilterExpression="#s <> :p",
+                          ExpressionAttributeNames={"#s": "status"},
+                          ExpressionAttributeValues={":p": "PENDING"})
+    items = resp.get("Items", [])
+    items.sort(key=lambda x: x.get("resolved_at") or x.get("created_at") or "", reverse=True)
+    return items
+
 def resolve(hitl_id: str, status: str, resolved_by: str) -> dict:
     assert status in ("APPROVED", "REJECTED")
     item = get_hitl_request(hitl_id)

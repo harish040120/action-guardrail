@@ -4,8 +4,8 @@ from app.core.auth import require_api_key
 from app.core.engine import PolicyEngine
 from app.core.models import ActionRequest, Decision
 from app.core.normalizer import normalize
-from app.core.audit import write_audit, query_by_agent, query_recent, AuditWriteError
-from app.core.hitl import create_hitl_request, list_pending, resolve, get_hitl_request
+from app.core.audit import write_audit, write_hitl_resolution_audit, query_by_agent, query_recent, AuditWriteError
+from app.core.hitl import create_hitl_request, list_pending, list_hitl_history, resolve, get_hitl_request
 from app.adapters.tools import dispatch, ToolExecutionError
 from app.core.logger import get_logger
 import os, traceback
@@ -103,25 +103,121 @@ def execute_action(action: ActionRequest):
 def hitl_pending():
     return {"pending": list_pending()}
 
+@app.get("/v1/hitl/history", dependencies=[Depends(require_api_key)])
+def hitl_history():
+    return {"items": list_hitl_history()}
+
 @app.post("/v1/hitl/{hitl_id}/approve", dependencies=[Depends(require_api_key)])
-def hitl_approve(hitl_id: str, approved_by: str = "reviewer"):
+def hitl_approve(
+    hitl_id: str,
+    approved_by: str = "reviewer",
+):
     try:
-        item = resolve(hitl_id, "APPROVED", approved_by)
+        item = resolve(
+            hitl_id,
+            "APPROVED",
+            approved_by,
+        )
     except ValueError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(
+            status_code=409,
+            detail=str(e),
+        )
+
     try:
-        result = dispatch(item["action_type"], json.loads(item["arguments"]) if isinstance(item["arguments"], str) else item["arguments"])
+        arguments = json.loads(item["arguments"])
+        result = dispatch(
+            item["action_type"],
+            arguments,
+        )
     except ToolExecutionError as e:
-        raise HTTPException(status_code=502, detail=f"Tool execution failed after approval: {e}")
-    return {"status": "APPROVED", "executed": True, "result": result}
+        raise HTTPException(
+            status_code=502,
+            detail=f"Tool execution failed after approval: {e}",
+        ) from e
+
+    # IMPORTANT:
+    # Write a separate audit event for the HITL resolution.
+    try:
+        decision = Decision(
+            request_id=item["request_id"],
+            tool_name=item["tool_name"],
+            action_type=item["action_type"],
+            verdict="require_hitl",
+            matched_rule_ids=[],
+            reason=item["reason"],
+            timestamp=item["created_at"],
+            agent_id=item["agent_id"],
+            arguments=arguments,
+        )
+
+        write_hitl_resolution_audit(
+            decision=decision,
+            hitl_id=hitl_id,
+            status="APPROVED",
+            resolved_by=approved_by,
+            executed=True,
+            execution_result=result,
+        )
+
+    except AuditWriteError as e:
+        log.error(
+            "hitl_approval_audit_failed",
+            extra={
+                "hitl_id": hitl_id,
+                "request_id": item["request_id"],
+                "error": str(e),
+            },
+        )
+
+    return {
+        "status": "APPROVED",
+        "executed": True,
+        "hitl_id": hitl_id,
+        "resolved_by": approved_by,
+        "result": result,
+    }
 
 @app.post("/v1/hitl/{hitl_id}/reject", dependencies=[Depends(require_api_key)])
 def hitl_reject(hitl_id: str, rejected_by: str = "reviewer"):
     try:
-        resolve(hitl_id, "REJECTED", rejected_by)
+        item = resolve(hitl_id, "REJECTED", rejected_by)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e))
-    return {"status": "REJECTED", "executed": False}
+
+    try:
+        arguments = json.loads(item["arguments"])
+        decision = Decision(
+            request_id=item["request_id"],
+            tool_name=item["tool_name"],
+            action_type=item["action_type"],
+            verdict="require_hitl",
+            matched_rule_ids=[],
+            reason=item["reason"],
+            timestamp=item["created_at"],
+            agent_id=item["agent_id"],
+            arguments=arguments,
+        )
+
+        write_hitl_resolution_audit(
+            decision=decision,
+            hitl_id=hitl_id,
+            status="REJECTED",
+            resolved_by=rejected_by,
+            executed=False,
+            execution_result=None,
+        )
+    except AuditWriteError as e:
+        log.error(
+            "hitl_rejection_audit_failed",
+            extra={
+                "hitl_id": hitl_id,
+                "request_id": item["request_id"],
+                "error": str(e),
+            },
+        )
+
+    return {"status": "REJECTED", "executed": False, "hitl_id": hitl_id, "resolved_by": rejected_by}
 
 @app.get("/v1/audit", dependencies=[Depends(require_api_key)])
 def audit(agent_id: str | None = None, limit: int = 50):

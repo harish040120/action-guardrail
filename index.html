@@ -461,13 +461,22 @@
 
       <!-- APPROVALS -->
       <div class="view" id="view-approvals">
-        <h2 class="title">Pending Approvals</h2>
+        <h2 class="title">Approvals</h2>
         <p class="sub">Actions the policy engine routed to <code>require_hitl</code>. Approve to execute now, or reject to permanently block.</p>
-        <div class="toolbar">
-          <button class="btn" onclick="loadHitl()">Refresh</button>
+        <div class="toolbar" style="flex-wrap:wrap;gap:12px;">
+          <div class="pill-row" id="hitl-tabs">
+            <button class="pill active" data-tab="pending" onclick="switchHitlTab('pending')">Pending</button>
+            <button class="pill" data-tab="history" onclick="switchHitlTab('history')">History</button>
+          </div>
+          <button class="btn" onclick="refreshCurrentHitlTab()">Refresh</button>
           <span style="font-size:11.5px;color:var(--muted-2);font-family:var(--mono);">auto-refreshing every 8s</span>
         </div>
-        <div id="hitl-list"></div>
+        <div id="hitl-pending-panel">
+          <div id="hitl-list"></div>
+        </div>
+        <div id="hitl-history-panel" style="display:none;">
+          <div id="hitl-history-list"></div>
+        </div>
       </div>
 
       <!-- AUDIT -->
@@ -752,7 +761,7 @@ function showView(name){
   if(viewEl) viewEl.classList.add('active');
   const navBtn = document.querySelector(`nav button[data-view="${name}"]`);
   if(navBtn) navBtn.classList.add('active');
-  if(name === 'approvals') loadHitl();
+  if(name === 'approvals'){ loadHitl(); loadHitlHistory(); }
   if(name === 'audit') loadAudit();
   if(name === 'policies') loadPolicies();
   if(name === 'overview') loadOverview();
@@ -760,11 +769,31 @@ function showView(name){
   if(name === 'settings') loadSettings();
 }
 
+let currentHitlTab = 'pending';
+
+function switchHitlTab(tab){
+  currentHitlTab = tab;
+  document.querySelectorAll('#hitl-tabs .pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.tab === tab);
+  });
+  document.getElementById('hitl-pending-panel').style.display = tab === 'pending' ? '' : 'none';
+  document.getElementById('hitl-history-panel').style.display = tab === 'history' ? '' : 'none';
+}
+
+function refreshCurrentHitlTab(){
+  if(currentHitlTab === 'pending') loadHitl();
+  else loadHitlHistory();
+}
+
 function boot(){
   loadOverview();
   loadHitl();
+  loadHitlHistory();
   loadAudit();
-  pollTimer = setInterval(loadHitlQuiet, 8000);
+  pollTimer = setInterval(()=>{
+    loadHitlQuiet();
+    loadHitlHistoryQuiet();
+  }, 8000);
 }
 
 function refreshAll(){
@@ -981,6 +1010,61 @@ function formatDuration(ms){
   return h + 'h ' + (m%60) + 'm';
 }
 
+async function loadHitlHistory(){
+  const box = document.getElementById('hitl-history-list');
+  box.innerHTML = '<div class="empty">Loading…</div>';
+  await loadHitlHistoryQuiet(box);
+}
+
+async function loadHitlHistoryQuiet(boxOverride){
+  const box = boxOverride && boxOverride.innerHTML !== undefined ? boxOverride : document.getElementById('hitl-history-list');
+  try{
+    const data = await api('/v1/hitl/history');
+    const items = data.items || [];
+    if(items.length === 0){
+      box.innerHTML = '<div class="empty"><div class="glyph">·</div>No HITL history yet. Resolved approvals and rejections will appear here.</div>';
+      return;
+    }
+    items.sort((a,b)=> new Date(b.resolved_at || b.created_at) - new Date(a.resolved_at || a.created_at));
+    box.innerHTML = items.map(renderHitlHistoryCard).join('');
+  }catch(e){
+    if(!boxOverride) box.innerHTML = `<div class="empty">Could not load HITL history — ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function renderHitlHistoryCard(item){
+  const resolved = new Date(item.resolved_at || item.created_at);
+  const statusClass = item.status === 'APPROVED' ? 'b-ok' : item.status === 'REJECTED' ? 'b-block' : 'b-warn';
+  const executedStr = item.executed === true || item.executed === 'true' ? 'YES' : 'NO';
+  let resultStr = '—';
+  if(item.execution_result){
+    try{
+      const r = typeof item.execution_result === 'string' ? JSON.parse(item.execution_result) : item.execution_result;
+      resultStr = escapeHtml(JSON.stringify(r));
+    }catch(e){ resultStr = escapeHtml(String(item.execution_result)); }
+  }
+  return `
+  <div class="hitl-card" style="opacity:0.85;">
+    <div class="hitl-top">
+      <div>
+        <div class="hitl-tool">${escapeHtml(item.tool_name)} <span class="badge ${statusClass}" style="margin-left:8px;">${escapeHtml(item.status)}</span></div>
+        <div class="hitl-meta">
+          ${escapeHtml(item.action_type || 'unknown')} &middot; agent: ${escapeHtml(item.agent_id)} &middot; ${escapeHtml(item.hitl_id)}
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted-2);text-align:right;">
+        <div>Resolved: ${resolved.toLocaleString()}</div>
+        <div>By: ${escapeHtml(item.resolved_by || '—')}</div>
+      </div>
+    </div>
+    <div class="kv-grid" style="margin-top:8px;">
+      <div><span class="k">Executed:</span> <strong>${executedStr}</strong></div>
+      <div><span class="k">Request ID:</span> <span style="font-family:var(--mono);font-size:11px;">${escapeHtml(item.request_id||'—')}</span></div>
+    </div>
+    ${item.execution_result ? `<div style="margin-top:6px;"><span class="k">Result:</span> <span style="font-family:var(--mono);font-size:11px;">${resultStr}</span></div>` : ''}
+  </div>`;
+}
+
 function openHitlApprove(hitlId, btn, argsStr, toolName, agentId, actionType, ruleIds, reason){
   let args;
   try{ args = JSON.parse(argsStr); }catch(e){ args = {}; }
@@ -1037,6 +1121,7 @@ async function confirmHitlApprove(hitlId, btn){
     setTimeout(() => {
       closeHitlModal();
       loadHitl();
+      loadHitlHistory();
       loadOverview();
       loadAudit();
     }, 1500);
@@ -1090,6 +1175,7 @@ async function confirmHitlReject(hitlId, btn){
     setTimeout(() => {
       closeHitlModal();
       loadHitl();
+      loadHitlHistory();
       loadOverview();
       loadAudit();
     }, 1000);

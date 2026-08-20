@@ -1,5 +1,6 @@
 import boto3, os, json
 from app.core.models import Decision
+from datetime import datetime, timezone
 
 AUDIT_TABLE = os.getenv("AUDIT_TABLE_NAME", "guardrail_audit_log")
 REGION = os.getenv("AWS_REGION") or os.getenv("AWS_REGION_OVERRIDE", "us-east-1")
@@ -12,6 +13,43 @@ def redact(obj):
     if isinstance(obj, list):
         return [redact(v) for v in obj]
     return obj
+
+def write_hitl_resolution_audit(
+    decision: Decision,
+    hitl_id: str,
+    status: str,
+    resolved_by: str,
+    executed: bool,
+    execution_result: dict | None = None,
+):
+    resolution_timestamp = datetime.now(timezone.utc).isoformat()
+    item = {
+        "agent_id": decision.agent_id,
+        "sort_key": f"{resolution_timestamp}#HITL#{hitl_id}#{status}",
+        "request_id": decision.request_id,
+        "hitl_id": hitl_id,
+        "tool_name": decision.tool_name,
+        "action_type": decision.action_type or "unknown",
+        "verdict": decision.verdict,
+        "event_type": f"HITL_{status}",
+        "matched_rule_ids": decision.matched_rule_ids,
+        "reason": decision.reason,
+        "timestamp": resolution_timestamp,
+        "resolved_by": resolved_by,
+        "executed": executed,
+        "arguments": json.dumps(redact(decision.arguments)),
+        "execution_result": (
+            json.dumps(redact(execution_result))
+            if execution_result is not None
+            else None
+        ),
+    }
+
+    try:
+        _table().put_item(Item=item)
+    except Exception as e:
+        raise AuditWriteError(str(e)) from e
+
 
 def _table():
     return boto3.resource("dynamodb", region_name=REGION).Table(AUDIT_TABLE)

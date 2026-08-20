@@ -196,9 +196,6 @@ The system has been exercised end-to-end against the **live AWS endpoint**, both
 - **IAM least privilege** — the GitHub deployment role was broadened to get CI/CD working; it should be tightened.
 - **Tool adapters are sandboxed demo targets** (in-memory DB, captured email outbox, jailed file directory) by design — not connected to real production systems.
 
-**One-line summary for a review/demo:**
-> "We built an action-level guardrail for AI agents. Unlike guardrails that only inspect LLM text, this system intercepts the tool action itself, immediately before execution — normalizing it, evaluating policy-as-code with default-deny and most-restrictive-wins logic, auditing it in DynamoDB, and then blocking it, routing it to a human approver, or executing it through a sandboxed adapter. It's deployed on AWS via SAM/CloudFormation with OIDC-based CI/CD, and has been proven end-to-end with a real OpenRouter tool-calling agent against the live endpoint."
-
 ---
 
 ## 10. Repository Structure (as built)

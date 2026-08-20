@@ -328,17 +328,6 @@
   }
   .agent-tools-list .tag{font-size:10px;padding:1px 6px;}
 
-  /* -- settings -- */
-  .settings-section{margin-bottom:28px;}
-  .settings-section h3{font-size:14px;margin:0 0 12px;font-weight:600;}
-  .settings-row{display:flex;gap:12px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;}
-  .settings-row label.f{margin-bottom:0;}
-  .settings-row input{min-width:300px;}
-  .warning-box{
-    background:var(--amber-dim);border:1px solid #5a4420;border-radius:8px;
-    padding:12px 16px;font-size:12px;color:var(--amber);line-height:1.5;margin-bottom:16px;
-  }
-
   /* -- time filter -- */
   .filter-group{display:flex;flex-direction:column;gap:4px;}
   .filter-group label.f{margin-bottom:0;}
@@ -364,7 +353,6 @@
     .conn-hostname{display:none;}
     .header-right{gap:8px;}
     .grid-4{grid-template-columns:repeat(2,1fr);}
-    .settings-row input{min-width:100%;width:100%;}
   }
 </style>
 </head>
@@ -410,7 +398,7 @@
         <span id="conn-label">Checking…</span>
       </div>
       <button class="btn-icon" onclick="refreshAll()" title="Refresh all">&#x21bb;</button>
-      <button class="btn-icon" onclick="showView('settings')" title="Settings">&#x2699;</button>
+      <button class="btn-icon" onclick="refreshAll()" title="Refresh all views">&#x21bb;</button>
       <button class="btn btn-ghost" onclick="disconnect()">Disconnect</button>
     </div>
   </header>
@@ -422,8 +410,7 @@
       <button data-view="audit" onclick="showView('audit')"><span class="n">03</span>Audit Log</button>
       <button data-view="policies" onclick="showView('policies')"><span class="n">04</span>Policies</button>
       <button data-view="test" onclick="showView('test')"><span class="n">05</span>Test Console</button>
-      <button data-view="agents" onclick="showView('agents')"><span class="n">06</span>Agents</button>
-      <button data-view="settings" onclick="showView('settings')"><span class="n">07</span>Settings</button>
+        <button data-view="agents" onclick="showView('agents')"><span class="n">06</span>Agents</button>
     </nav>
 
     <main>
@@ -586,25 +573,6 @@
         <p class="sub">Observed agents derived from audit records. Click an agent to view its activity.</p>
         <div id="agents-grid"></div>
       </div>
-
-      <!-- SETTINGS -->
-      <div class="view" id="view-settings">
-        <h2 class="title">Settings</h2>
-        <p class="sub">Security information and console details.</p>
-        <div class="settings-section">
-          <h3>Security Notice</h3>
-          <div class="warning-box">
-            This console uses API-key authentication. Credentials are entered on the connection screen and held in browser memory only — they are never written to localStorage, sessionStorage, cookies, or any file. On page refresh, credentials must be re-entered. For production use Cognito/OIDC or a backend-for-frontend pattern. Never commit API keys to Git.
-          </div>
-        </div>
-        <div class="settings-section">
-          <h3>Configuration</h3>
-          <div class="kv-grid" style="max-width:500px;">
-            <div><span class="k">Storage:</span> <span class="mono">memory only (no persistence)</span></div>
-            <div><span class="k">Auth header:</span> <span class="mono">x-api-key</span></div>
-          </div>
-        </div>
-      </div>
     </main>
   </div>
 </div>
@@ -766,7 +734,6 @@ function showView(name){
   if(name === 'policies') loadPolicies();
   if(name === 'overview') loadOverview();
   if(name === 'agents') loadAgents();
-  if(name === 'settings') loadSettings();
 }
 
 let currentHitlTab = 'pending';
@@ -1469,11 +1436,6 @@ async function runTest(){
     box.className = 'response-box err';
     box.textContent = `HTTP ${e.status || '?'}\n` + JSON.stringify(e.body || e.message, null, 2);
   }
-}
-
-/* ---------------- Settings ---------------- */
-function loadSettings(){
-  // Settings page is static — security notice and config info only
 }
 
 /* ---------------- Utilities ---------------- */

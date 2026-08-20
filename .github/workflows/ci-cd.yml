@@ -100,7 +100,7 @@ jobs:
           curl -f "$API_URL/health"
   deploy-dashboard:
     name: Deploy Dashboard
-    needs: deploy-backend
+    needs: deploy
 
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
 

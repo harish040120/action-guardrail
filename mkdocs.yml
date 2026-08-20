@@ -1,0 +1,53 @@
+site_name: Action Guardrail
+site_description: Agent-Action Enforcement Gateway — Policy Engine, HITL, Audit, Dashboard
+site_url: https://harish040120.github.io/action-guardrail/
+repo_url: https://github.com/harish040120/action-guardrail
+repo_name: action-guardrail
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: amber
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: amber
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.indexes
+    - toc.follow
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+  - tables
+
+nav:
+  - Home: index.md
+  - Architecture: architecture.md
+  - Policies: policies.md
+  - API Reference: api-reference.md
+  - Dashboard: dashboard.md
+  - Demo Guide: demo.md
+  - Deployment: deployment.md

@@ -6,7 +6,6 @@
 <title>Action Guardrail — Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="config.js"></script>
 <style>
   :root{
     --bg:#0B0E11;
@@ -288,6 +287,85 @@
     padding:10px 14px;background:var(--panel);border:1px solid var(--border-soft);
     border-radius:7px;margin-bottom:16px;
   }
+
+  /* -- enhanced header -- */
+  .header-right{display:flex;align-items:center;gap:12px;}
+  .conn-hostname{font-family:var(--mono);font-size:11px;color:var(--muted-2);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .dot.degraded{background:var(--amber);box-shadow:0 0 0 3px var(--amber-dim);}
+  .conn-status{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-family:var(--mono);}
+  .conn-status.connected{color:var(--green);}
+  .conn-status.degraded{color:var(--amber);}
+  .conn-status.offline{color:var(--red);}
+  .btn-icon{
+    background:transparent;border:1px solid var(--border);color:var(--muted);
+    width:32px;height:32px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    font-size:14px;transition:border-color .15s ease;
+  }
+  .btn-icon:hover{border-color:#333c46;color:var(--text);}
+
+  /* -- agent cards -- */
+  .agent-card{
+    background:var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);
+    padding:0;overflow:hidden;transition:border-color .15s ease;
+  }
+  .agent-card:hover{border-color:var(--amber);}
+  .agent-card-header{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:14px 18px;border-bottom:1px solid var(--border-soft);background:var(--panel-raised);
+  }
+  .agent-id{font-family:var(--mono);font-size:14px;font-weight:600;}
+  .agent-last-seen{font-size:11px;color:var(--muted-2);font-family:var(--mono);}
+  .agent-card-body{padding:14px 18px;}
+  .agent-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:6px 0;border-bottom:1px solid var(--border-soft);
+  }
+  .agent-row:last-child{border-bottom:none;}
+  .agent-row .label{font-size:12px;color:var(--muted-2);font-family:var(--mono);text-transform:uppercase;letter-spacing:.04em;}
+  .agent-row .value{font-family:var(--mono);font-size:13px;font-weight:600;}
+  .agent-tools-list{
+    display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;
+  }
+  .agent-tools-list .tag{font-size:10px;padding:1px 6px;}
+
+  /* -- settings -- */
+  .settings-section{margin-bottom:28px;}
+  .settings-section h3{font-size:14px;margin:0 0 12px;font-weight:600;}
+  .settings-row{display:flex;gap:12px;align-items:flex-end;margin-bottom:12px;flex-wrap:wrap;}
+  .settings-row label.f{margin-bottom:0;}
+  .settings-row input{min-width:300px;}
+  .warning-box{
+    background:var(--amber-dim);border:1px solid #5a4420;border-radius:8px;
+    padding:12px 16px;font-size:12px;color:var(--amber);line-height:1.5;margin-bottom:16px;
+  }
+
+  /* -- time filter -- */
+  .filter-group{display:flex;flex-direction:column;gap:4px;}
+  .filter-group label.f{margin-bottom:0;}
+
+  /* -- recent actions table -- */
+  .recent-table{width:100%;border-collapse:collapse;font-size:12px;}
+  .recent-table th{
+    text-align:left;font-family:var(--mono);font-size:10px;color:var(--muted-2);
+    text-transform:uppercase;letter-spacing:.05em;padding:8px 10px;border-bottom:1px solid var(--border);
+  }
+  .recent-table td{padding:8px 10px;border-bottom:1px solid var(--border-soft);font-family:var(--mono);font-size:11.5px;color:var(--muted);}
+
+  /* -- responsive sidebar -- */
+  @media(max-width:768px){
+    .shell{flex-direction:column;}
+    nav{
+      width:100%;border-right:none;border-bottom:1px solid var(--border-soft);
+      padding:10px;display:flex;gap:4px;overflow-x:auto;flex-shrink:0;
+    }
+    nav button{white-space:nowrap;padding:8px 10px;font-size:12px;}
+    nav button .n{display:none;}
+    main{padding:20px 16px 40px;}
+    .conn-hostname{display:none;}
+    .header-right{gap:8px;}
+    .grid-4{grid-template-columns:repeat(2,1fr);}
+    .settings-row input{min-width:100%;width:100%;}
+  }
 </style>
 </head>
 <body>
@@ -300,10 +378,15 @@
     <label class="f">Guardrail API URL</label>
     <input id="in-url" placeholder="https://xxxxxxxxxx.execute-api.us-east-1.amazonaws.com" />
     <label class="f">API Key (x-api-key)</label>
-    <input id="in-key" type="password" placeholder="dev-local-key" />
+    <input id="in-key" type="password" placeholder="Enter your API key" />
     <button class="btn" onclick="connect()">Connect</button>
-    <div id="gate-err" class="gate-err">Could not reach that URL with that key. Check the console for details.</div>
-    <div class="gate-note">Stored only in this browser tab's sessionStorage — never sent anywhere but your API's <code>x-api-key</code> header. Clear it any time with Disconnect.</div>
+    <div id="gate-err" class="gate-err"></div>
+    <div id="gate-ok" style="color:var(--green);font-size:12px;margin-top:10px;display:none;"></div>
+    <div class="gate-note">
+      Credentials are used only for this browser session and are never stored.
+      The API key is sent only to the Guardrail API as the <code>x-api-key</code> header.
+      On page refresh, you will need to enter them again.
+    </div>
   </div>
 </div>
 
@@ -317,12 +400,17 @@
       <div class="brand-mark">AG</div>
       <div class="brand-text">
         <h1>Action Guardrail</h1>
-        <p id="api-url-label">—</p>
+        <p>Enforcement Console</p>
       </div>
     </div>
-    <div class="conn">
-      <span class="dot" id="conn-dot"></span>
-      <span id="conn-label">Checking…</span>
+    <div class="header-right">
+      <span class="conn-hostname" id="conn-hostname">—</span>
+      <div class="conn-status" id="conn-status">
+        <span class="dot" id="conn-dot"></span>
+        <span id="conn-label">Checking…</span>
+      </div>
+      <button class="btn-icon" onclick="refreshAll()" title="Refresh all">&#x21bb;</button>
+      <button class="btn-icon" onclick="showView('settings')" title="Settings">&#x2699;</button>
       <button class="btn btn-ghost" onclick="disconnect()">Disconnect</button>
     </div>
   </header>
@@ -330,10 +418,12 @@
   <div class="shell">
     <nav>
       <button class="active" data-view="overview" onclick="showView('overview')"><span class="n">01</span>Overview</button>
-      <button data-view="approvals" onclick="showView('approvals')"><span class="n">02</span>Approvals<span class="pending-badge" id="nav-pending-badge" style="display:none;">0</span></button>
+      <button data-view="approvals" onclick="showView('approvals')"><span class="n">02</span>Approvals<span class="pending-badge" id="nav-pending-badge">0</span></button>
       <button data-view="audit" onclick="showView('audit')"><span class="n">03</span>Audit Log</button>
       <button data-view="policies" onclick="showView('policies')"><span class="n">04</span>Policies</button>
       <button data-view="test" onclick="showView('test')"><span class="n">05</span>Test Console</button>
+      <button data-view="agents" onclick="showView('agents')"><span class="n">06</span>Agents</button>
+      <button data-view="settings" onclick="showView('settings')"><span class="n">07</span>Settings</button>
     </nav>
 
     <main>
@@ -341,7 +431,7 @@
       <div class="view active" id="view-overview">
         <h2 class="title">Overview</h2>
         <p class="sub">Live status of the deployed enforcement gateway.</p>
-        <div class="grid grid-4">
+        <div class="grid grid-4" style="margin-bottom:14px;">
           <div class="card">
             <div class="stat-label">Health</div>
             <div class="stat-value" id="ov-health">—</div>
@@ -351,18 +441,17 @@
             <div class="stat-value" id="ov-rules">—</div>
           </div>
           <div class="card">
+            <div class="stat-label">Pending HITL</div>
+            <div class="stat-value amber" id="ov-pending">—</div>
+          </div>
+          <div class="card">
             <div class="stat-label">Default action</div>
             <div class="stat-value amber" id="ov-default">—</div>
           </div>
-          <div class="card">
-            <div class="stat-label">Pending approvals</div>
-            <div class="stat-value amber" id="ov-pending">—</div>
-          </div>
         </div>
-        <div class="panel-title">Verdict distribution (last 20 audit records)</div>
-        <div class="grid grid-4">
+        <div class="grid grid-4" style="margin-bottom:14px;">
           <div class="card"><div class="stat-label">Blocked</div><div class="stat-value red" id="ov-blocked">—</div></div>
-          <div class="card"><div class="stat-label">Required HITL</div><div class="stat-value amber" id="ov-hitl">—</div></div>
+          <div class="card"><div class="stat-label">HITL Required</div><div class="stat-value amber" id="ov-hitl">—</div></div>
           <div class="card"><div class="stat-label">Allowed / Executed</div><div class="stat-value green" id="ov-allowed">—</div></div>
           <div class="card"><div class="stat-label">Dry run mode</div><div class="stat-value" id="ov-dryrun">—</div></div>
         </div>
@@ -386,19 +475,48 @@
         <h2 class="title">Audit Log</h2>
         <p class="sub">Every evaluated action — blocked, held for review, or logged and allowed.</p>
         <div class="toolbar">
-          <select id="audit-agent" style="min-width:180px;">
-            <option value="">All agents</option>
-          </select>
-          <input id="audit-tool" placeholder="Tool name" style="width:140px;" />
-          <input id="audit-action-type" placeholder="Action type" style="width:140px;" />
-          <select id="audit-verdict" style="min-width:130px;">
-            <option value="">All verdicts</option>
-            <option value="block">block</option>
-            <option value="require_hitl">require_hitl</option>
-            <option value="log_and_allow">log_and_allow</option>
-          </select>
-          <input id="audit-limit" placeholder="Limit" value="50" style="width:70px;" />
-          <button class="btn" onclick="loadAudit()">Query</button>
+          <div class="filter-group">
+            <label class="f">Agent</label>
+            <select id="audit-agent" style="min-width:160px;">
+              <option value="">All agents</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="f">Tool</label>
+            <select id="audit-tool" style="min-width:140px;">
+              <option value="">All tools</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="f">Action type</label>
+            <select id="audit-action-type" style="min-width:140px;">
+              <option value="">All types</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="f">Verdict</label>
+            <select id="audit-verdict" style="min-width:130px;">
+              <option value="">All</option>
+              <option value="block">BLOCK</option>
+              <option value="require_hitl">REQUIRE_HITL</option>
+              <option value="log_and_allow">LOG_AND_ALLOW</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="f">Time range</label>
+            <select id="audit-time" style="min-width:130px;">
+              <option value="">All time</option>
+              <option value="900000">Last 15 min</option>
+              <option value="3600000">Last hour</option>
+              <option value="86400000" selected>Last 24h</option>
+              <option value="604800000">Last 7 days</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label class="f">Limit</label>
+            <input id="audit-limit" value="50" style="width:70px;" />
+          </div>
+          <button class="btn" onclick="loadAudit()" style="align-self:flex-end;">Query</button>
         </div>
         <div id="audit-table"></div>
       </div>
@@ -452,6 +570,32 @@
           </div>
         </div>
       </div>
+
+      <!-- AGENTS -->
+      <div class="view" id="view-agents">
+        <h2 class="title">Agents</h2>
+        <p class="sub">Observed agents derived from audit records. Click an agent to view its activity.</p>
+        <div id="agents-grid"></div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="view" id="view-settings">
+        <h2 class="title">Settings</h2>
+        <p class="sub">Security information and console details.</p>
+        <div class="settings-section">
+          <h3>Security Notice</h3>
+          <div class="warning-box">
+            This console uses API-key authentication. Credentials are entered on the connection screen and held in browser memory only — they are never written to localStorage, sessionStorage, cookies, or any file. On page refresh, credentials must be re-entered. For production use Cognito/OIDC or a backend-for-frontend pattern. Never commit API keys to Git.
+          </div>
+        </div>
+        <div class="settings-section">
+          <h3>Configuration</h3>
+          <div class="kv-grid" style="max-width:500px;">
+            <div><span class="k">Storage:</span> <span class="mono">memory only (no persistence)</span></div>
+            <div><span class="k">Auth header:</span> <span class="mono">x-api-key</span></div>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </div>
@@ -480,7 +624,11 @@
 let API_URL = '';
 let API_KEY = '';
 let pollTimer = null;
-let knownAgents = [];
+let knownAgents = new Set();
+let knownTools = new Set();
+let knownActionTypes = new Set();
+let allAuditItems = [];
+let connState = 'offline'; // connected | degraded | offline
 
 function toast(msg, ok=true){
   const t = document.getElementById('toast');
@@ -488,7 +636,18 @@ function toast(msg, ok=true){
   t.style.display = 'flex';
   t.style.borderColor = ok ? 'var(--green)' : 'var(--red)';
   clearTimeout(t._hideTimer);
-  t._hideTimer = setTimeout(()=>{ t.style.display='none'; }, 3200);
+  t._hideTimer = setTimeout(()=>{ t.style.display='none'; }, 3500);
+}
+
+function errorMessage(status, body){
+  if(status === 401) return 'API key rejected.';
+  if(status === 403) return 'Action blocked by policy.';
+  if(status === 409) return 'HITL request is no longer pending.';
+  if(status === 422) return 'Invalid request format.';
+  if(status === 500) return 'Internal server error.';
+  if(status === 503) return 'Guardrail unavailable. Action was fail-closed.';
+  if(status === 0) return 'Unable to reach the enforcement gateway.';
+  return (body && (body.detail || body.message)) || 'Request failed.';
 }
 
 async function api(path, opts={}){
@@ -503,60 +662,102 @@ async function api(path, opts={}){
   let body = null;
   try { body = await res.json(); } catch(e) { /* no body */ }
   if(!res.ok){
-    const err = new Error((body && (body.detail || body.message)) || res.statusText);
+    const err = new Error(errorMessage(res.status, body));
     err.status = res.status; err.body = body;
     throw err;
   }
   return body;
 }
 
-function connect(){
+async function connect(){
   const url = document.getElementById('in-url').value.trim();
   const key = document.getElementById('in-key').value.trim();
   if(!url || !key){ showGateErr('Enter both the API URL and the API key.'); return; }
-  API_URL = url; API_KEY = key;
-  document.getElementById('api-url-label').textContent = url.replace(/^https?:\/\//,'');
-  fetch(API_URL.replace(/\/$/,'') + '/health')
-    .then(r => r.json())
-    .then(async (h) => {
-      try {
-        await api('/v1/policies');
-      } catch(e){
-        showGateErr('URL reachable, but the API key was rejected (401). Check the key.');
-        return;
-      }
-      sessionStorage.setItem('gr_url', API_URL);
-      sessionStorage.setItem('gr_key', API_KEY);
-      document.getElementById('gate').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
-      boot();
-    })
-    .catch(err => {
-      showGateErr('Could not reach that URL. If this is a browser CORS error, the Lambda needs CORSMiddleware enabled and redeployed — see setup notes.');
-      console.error(err);
-    });
+
+  hideGateErr();
+  hideGateOk();
+  API_URL = url.replace(/\/$/, '');
+  API_KEY = key;
+
+  try {
+    const health = await fetch(API_URL + '/health');
+    if (!health.ok) {
+      throw new Error('Health check failed');
+    }
+  } catch(e) {
+    API_URL = '';
+    API_KEY = '';
+    setConn('offline');
+    showGateErr('Unable to reach the Guardrail API.');
+    return;
+  }
+
+  try {
+    await api('/v1/policies');
+  } catch(e) {
+    API_URL = '';
+    API_KEY = '';
+    showGateErr('API reachable, but API key is invalid.');
+    return;
+  }
+
+  showGateOk('Connected to Action Guardrail.');
+  setTimeout(() => {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    setConn('connected');
+    updateHostname();
+    boot();
+  }, 600);
 }
 
 function showGateErr(msg){
   const e = document.getElementById('gate-err');
   e.textContent = msg; e.style.display = 'block';
+  document.getElementById('gate-ok').style.display = 'none';
+}
+function hideGateErr(){
+  document.getElementById('gate-err').style.display = 'none';
+}
+function showGateOk(msg){
+  const e = document.getElementById('gate-ok');
+  e.textContent = msg; e.style.display = 'block';
+  document.getElementById('gate-err').style.display = 'none';
+}
+function hideGateOk(){
+  document.getElementById('gate-ok').style.display = 'none';
 }
 
 function disconnect(){
-  sessionStorage.removeItem('gr_url'); sessionStorage.removeItem('gr_key');
+  API_URL = '';
+  API_KEY = '';
   clearInterval(pollTimer);
-  location.reload();
+  document.getElementById('in-url').value = '';
+  document.getElementById('in-key').value = '';
+  hideGateErr();
+  hideGateOk();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('gate').style.display = 'flex';
+}
+
+function updateHostname(){
+  const label = document.getElementById('conn-hostname');
+  if(label) label.textContent = API_URL ? API_URL.replace(/^https?:\/\//,'').split('/')[0] : '—';
 }
 
 function showView(name){
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-  document.getElementById('view-'+name).classList.add('active');
-  document.querySelector(`nav button[data-view="${name}"]`).classList.add('active');
+  const viewEl = document.getElementById('view-'+name);
+  if(viewEl) viewEl.classList.add('active');
+  const navBtn = document.querySelector(`nav button[data-view="${name}"]`);
+  if(navBtn) navBtn.classList.add('active');
   if(name === 'approvals') loadHitl();
   if(name === 'audit') loadAudit();
   if(name === 'policies') loadPolicies();
   if(name === 'overview') loadOverview();
+  if(name === 'agents') loadAgents();
+  if(name === 'settings') loadSettings();
 }
 
 function boot(){
@@ -564,6 +765,88 @@ function boot(){
   loadHitl();
   loadAudit();
   pollTimer = setInterval(loadHitlQuiet, 8000);
+}
+
+function refreshAll(){
+  loadOverview();
+  loadHitl();
+  loadAudit();
+  toast('Refreshed', true);
+}
+
+/* ---------------- Connection state ---------------- */
+function setConn(state){
+  connState = state;
+  const dot = document.getElementById('conn-dot');
+  const label = document.getElementById('conn-label');
+  const status = document.getElementById('conn-status');
+  dot.className = 'dot ' + (state === 'connected' ? 'on' : state === 'degraded' ? 'degraded' : 'off');
+  label.textContent = state === 'connected' ? 'CONNECTED' : state === 'degraded' ? 'DEGRADED' : 'OFFLINE';
+  status.className = 'conn-status ' + state;
+  updateHostname();
+}
+
+function updateNavBadge(n){
+  const b = document.getElementById('nav-pending-badge');
+  b.style.display = 'inline-block';
+  b.textContent = n;
+}
+
+function updateSignal(pending){
+  const lights = document.querySelectorAll('#signal-strip span');
+  lights.forEach(l => l.className = pending.length > 0 ? 'sig-hitl' : 'sig-idle');
+}
+
+/* ---------------- Dropdown builders ---------------- */
+function updateAgentDropdown(extraAgents){
+  if(extraAgents) extraAgents.forEach(a => knownAgents.add(a));
+  const sel = document.getElementById('audit-agent');
+  if(!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All agents</option>';
+  Array.from(knownAgents).sort().forEach(a => {
+    const opt = document.createElement('option');
+    opt.value = a; opt.textContent = a;
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+
+function updateToolDropdown(){
+  const sel = document.getElementById('audit-tool');
+  if(!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All tools</option>';
+  Array.from(knownTools).sort().forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+
+function updateActionTypeDropdown(){
+  const sel = document.getElementById('audit-action-type');
+  if(!sel) return;
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All types</option>';
+  Array.from(knownActionTypes).sort().forEach(t => {
+    const opt = document.createElement('option');
+    opt.value = t; opt.textContent = t;
+    sel.appendChild(opt);
+  });
+  sel.value = current;
+}
+
+function collectFiltersFromItems(items){
+  items.forEach(i => {
+    if(i.agent_id) knownAgents.add(i.agent_id);
+    if(i.tool_name) knownTools.add(i.tool_name);
+    if(i.action_type && i.action_type !== 'unknown') knownActionTypes.add(i.action_type);
+  });
+  updateAgentDropdown();
+  updateToolDropdown();
+  updateActionTypeDropdown();
 }
 
 /* ---------------- Overview ---------------- */
@@ -575,8 +858,8 @@ async function loadOverview(){
     document.getElementById('ov-rules').textContent = h.rules_loaded;
     document.getElementById('ov-default').textContent = h.default_action;
     document.getElementById('ov-dryrun').textContent = h.dry_run ? 'ON' : 'off';
-    setConn(true);
-  }catch(e){ setConn(false); }
+    setConn('connected');
+  }catch(e){ setConn('offline'); }
 
   try{
     const hitl = await api('/v1/hitl');
@@ -587,61 +870,39 @@ async function loadOverview(){
   }catch(e){}
 
   try{
-    const audit = await api('/v1/audit?limit=20');
+    const audit = await api('/v1/audit?limit=50');
     const items = audit.items || [];
+    allAuditItems = items;
+    collectFiltersFromItems(items);
+
     const counts = {block:0, require_hitl:0, log_and_allow:0};
     items.forEach(i => { if(counts[i.verdict] !== undefined) counts[i.verdict]++; });
     document.getElementById('ov-blocked').textContent = counts.block;
     document.getElementById('ov-hitl').textContent = counts.require_hitl;
     document.getElementById('ov-allowed').textContent = counts.log_and_allow;
 
-    const agents = new Set();
-    items.forEach(i => { if(i.agent_id) agents.add(i.agent_id); });
-    updateAgentDropdown(agents);
-
     if(items.length > 0){
-      const recent = items.slice(0,5).map(i => {
+      const recent = items.slice(0,8).map(i => {
         const vBadge = verdictBadge(i.verdict);
-        return `<div style="padding:6px 0;border-bottom:1px solid var(--border-soft);display:flex;gap:10px;align-items:center;">
-          <span class="mono" style="min-width:130px;">${new Date(i.timestamp).toLocaleString()}</span>
-          ${vBadge}
-          <span class="mono">${escapeHtml(i.tool_name)}</span>
-          <span style="color:var(--muted-2);font-size:11px;">${escapeHtml(i.agent_id)}</span>
-        </div>`;
+        const ts = new Date(i.timestamp);
+        const time = ts.toLocaleTimeString();
+        return `<tr>
+          <td>${time}</td>
+          <td>${escapeHtml(i.agent_id)}</td>
+          <td>${escapeHtml(i.tool_name)}</td>
+          <td>${escapeHtml(i.action_type||'—')}</td>
+          <td>${vBadge}</td>
+          <td>${i.executed ? 'yes' : 'no'}</td>
+        </tr>`;
       }).join('');
-      document.getElementById('ov-recent-actions').innerHTML = recent;
+      document.getElementById('ov-recent-actions').innerHTML = `
+        <table class="recent-table"><thead><tr>
+          <th>Time</th><th>Agent</th><th>Tool</th><th>Action type</th><th>Verdict</th><th>Executed</th>
+        </tr></thead><tbody>${recent}</tbody></table>`;
     } else {
       document.getElementById('ov-recent-actions').innerHTML = '<div style="color:var(--muted-2);padding:10px 0;">No recent actions.</div>';
     }
   }catch(e){}
-}
-
-function setConn(ok){
-  document.getElementById('conn-dot').className = 'dot ' + (ok ? 'on' : 'off');
-  document.getElementById('conn-label').textContent = ok ? 'Connected' : 'Unreachable';
-}
-
-function updateNavBadge(n){
-  const b = document.getElementById('nav-pending-badge');
-  if(n > 0){ b.style.display='inline-block'; b.textContent = n; } else { b.style.display='none'; }
-}
-
-function updateSignal(pending){
-  const lights = document.querySelectorAll('#signal-strip span');
-  lights.forEach(l => l.className = pending.length > 0 ? 'sig-hitl' : 'sig-idle');
-}
-
-function updateAgentDropdown(extraAgents){
-  if(extraAgents) extraAgents.forEach(a => knownAgents.add(a));
-  const sel = document.getElementById('audit-agent');
-  const current = sel.value;
-  sel.innerHTML = '<option value="">All agents</option>';
-  Array.from(knownAgents).sort().forEach(a => {
-    const opt = document.createElement('option');
-    opt.value = a; opt.textContent = a;
-    sel.appendChild(opt);
-  });
-  sel.value = current;
 }
 
 /* ---------------- Approvals (HITL) ---------------- */
@@ -679,18 +940,22 @@ function renderHitlCard(item){
   const remaining = expires - now;
   const soon = remaining < 5*60*1000;
   const remainingStr = remaining > 0 ? formatDuration(remaining) : 'expired';
+  const argsKeys = Object.keys(args).join(', ') || '—';
   return `
   <div class="hitl-card" id="hitl-${item.hitl_id}">
     <div class="hitl-top">
       <div>
-        <div class="hitl-tool">${escapeHtml(item.tool_name)}</div>
+        <div class="hitl-tool">${escapeHtml(item.tool_name)} <span class="badge b-hitl" style="margin-left:8px;">REQUIRE_HITL</span></div>
         <div class="hitl-meta">
-          ${escapeHtml(item.action_type || 'unknown')} · agent: ${escapeHtml(item.agent_id)} · ${escapeHtml(item.hitl_id)}
+          ${escapeHtml(item.action_type || 'unknown')} &middot; agent: ${escapeHtml(item.agent_id)} &middot; ${escapeHtml(item.hitl_id)}
         </div>
       </div>
       <div class="expiry ${soon?'soon':''}">${remainingStr} remaining</div>
     </div>
-    <div class="hitl-reason">${escapeHtml(item.reason || '')}</div>
+    <div style="font-size:12px;color:var(--muted);margin:8px 0 4px;font-family:var(--mono);">
+      ${escapeHtml(argsKeys)}
+    </div>
+    <div class="hitl-reason"><strong>Reason:</strong> ${escapeHtml(item.reason || '')}</div>
     <div class="kv-grid">
       <div><span class="k">Created:</span> ${created.toLocaleString()}</div>
       <div><span class="k">Expires:</span> ${expires.toLocaleString()}</div>
@@ -700,8 +965,8 @@ function renderHitlCard(item){
     <div style="font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-bottom:6px;">ARGUMENTS</div>
     <pre class="args">${escapeHtml(JSON.stringify(args, null, 2))}</pre>
     <div class="hitl-actions">
-      <button class="btn btn-approve" onclick="openHitlApprove('${item.hitl_id}', this, ${escapeHtml(JSON.stringify(JSON.stringify(args)))}, '${escapeHtml(item.tool_name)}', '${escapeHtml(item.agent_id)}', '${escapeHtml(item.action_type||'')}')">Approve &amp; Execute</button>
-      <button class="btn btn-reject" onclick="resolveHitl('${item.hitl_id}','reject', this)">Reject</button>
+      <button class="btn btn-approve" onclick="openHitlApprove('${item.hitl_id}', this, ${escapeHtml(JSON.stringify(JSON.stringify(args)))}, '${escapeHtml(item.tool_name)}', '${escapeHtml(item.agent_id)}', '${escapeHtml(item.action_type||'')}', '${escapeHtml((item.matched_rule_ids||[]).join(','))}', '${escapeHtml(item.reason||'')}')">Approve &amp; Execute</button>
+      <button class="btn btn-reject" onclick="openHitlReject('${item.hitl_id}', this, '${escapeHtml(item.tool_name)}', '${escapeHtml(item.agent_id)}')">Reject</button>
       <div class="expiry ${soon?'soon':''}" style="margin-left:auto;font-size:11px;">expires ${expires.toLocaleTimeString()}</div>
     </div>
   </div>`;
@@ -716,13 +981,13 @@ function formatDuration(ms){
   return h + 'h ' + (m%60) + 'm';
 }
 
-function openHitlApprove(hitlId, btn, argsStr, toolName, agentId, actionType){
+function openHitlApprove(hitlId, btn, argsStr, toolName, agentId, actionType, ruleIds, reason){
   let args;
   try{ args = JSON.parse(argsStr); }catch(e){ args = {}; }
   const argsHtml = escapeHtml(JSON.stringify(args, null, 2));
   document.getElementById('hitl-modal-title').textContent = 'Approve & Execute: ' + toolName;
   document.getElementById('hitl-modal-content').innerHTML = `
-    <div style="font-size:13px;color:var(--muted);margin-bottom:12px;">
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">
       You are about to approve and <strong>execute</strong> this action. This will call the backend tool adapter.
     </div>
     <div class="kv-grid" style="margin-bottom:12px;">
@@ -731,6 +996,8 @@ function openHitlApprove(hitlId, btn, argsStr, toolName, agentId, actionType){
       <div><span class="k">Action type:</span> ${escapeHtml(actionType || '—')}</div>
       <div><span class="k">HITL ID:</span> <span style="font-family:var(--mono);font-size:11px;">${escapeHtml(hitlId)}</span></div>
     </div>
+    ${ruleIds ? `<div style="font-size:12px;color:var(--muted);margin-bottom:8px;"><span class="k">Rule:</span> ${escapeHtml(ruleIds)}</div>` : ''}
+    ${reason ? `<div style="font-size:12px;color:var(--muted);margin-bottom:12px;"><span class="k">Reason:</span> ${escapeHtml(reason)}</div>` : ''}
     <div style="font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-bottom:4px;">ARGUMENTS</div>
     <pre class="args" style="margin-bottom:12px;">${argsHtml}</pre>
     <div class="approve-warning">This approval will execute the action immediately. The result will be returned below.</div>
@@ -755,6 +1022,9 @@ async function confirmHitlApprove(hitlId, btn){
   const reviewer = document.getElementById('hitl-reviewer').value.trim() || 'console-reviewer';
   btn.disabled = true;
   btn.textContent = 'Executing…';
+  // Immediately remove the card from DOM so it cannot be acted on again
+  const cardEl = document.getElementById('hitl-' + hitlId);
+  if(cardEl) cardEl.style.display = 'none';
   try{
     const q = `?approved_by=${encodeURIComponent(reviewer)}`;
     const res = await api(`/v1/hitl/${hitlId}/approve${q}`, { method:'POST' });
@@ -763,14 +1033,17 @@ async function confirmHitlApprove(hitlId, btn){
     resultBox.innerHTML = `<div style="font-size:11px;color:var(--muted-2);font-family:var(--mono);margin-bottom:4px;">EXECUTION RESULT</div>
       <div class="execute-result">${escapeHtml(JSON.stringify(res, null, 2))}</div>`;
     btn.textContent = 'Approved & Executed';
-    toast('Approved — action executed successfully', true);
+    toast('Approved — action executed and logged', true);
     setTimeout(() => {
       closeHitlModal();
       loadHitl();
       loadOverview();
-    }, 2000);
+      loadAudit();
+    }, 1500);
   }catch(e){
     toast(`Failed: ${e.message}`, false);
+    // Restore the card if the API call failed
+    if(cardEl) cardEl.style.display = '';
     btn.disabled = false;
     btn.textContent = 'Confirm Approve & Execute';
     const resultBox = document.getElementById('hitl-approve-result');
@@ -779,19 +1052,56 @@ async function confirmHitlApprove(hitlId, btn){
   }
 }
 
-async function resolveHitl(id, action, btn){
-  const who = prompt(`Reject as (reviewer name):`, 'console-reviewer');
-  if(who === null) return;
-  btn.closest('.hitl-actions').querySelectorAll('button').forEach(b => b.disabled = true);
+function openHitlReject(hitlId, btn, toolName, agentId){
+  document.getElementById('hitl-modal-title').textContent = 'Reject: ' + toolName;
+  document.getElementById('hitl-modal-content').innerHTML = `
+    <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">
+      You are about to <strong>reject</strong> this action. It will be permanently blocked.
+    </div>
+    <div class="kv-grid" style="margin-bottom:14px;">
+      <div><span class="k">Tool:</span> <strong>${escapeHtml(toolName)}</strong></div>
+      <div><span class="k">Agent:</span> ${escapeHtml(agentId)}</div>
+      <div><span class="k">HITL ID:</span> <span style="font-family:var(--mono);font-size:11px;">${escapeHtml(hitlId)}</span></div>
+    </div>
+    <div class="approve-section">
+      <label class="f">Reviewer name</label>
+      <input id="hitl-reject-reviewer" value="console-reviewer" />
+      <div style="display:flex;gap:10px;margin-top:12px;">
+        <button class="btn btn-reject" onclick="confirmHitlReject('${hitlId}', this)">Confirm Reject</button>
+        <button class="btn" onclick="closeHitlModal()">Cancel</button>
+      </div>
+      <div id="hitl-reject-result" style="display:none;margin-top:12px;"></div>
+    </div>
+  `;
+  document.getElementById('hitl-modal').classList.add('open');
+}
+
+async function confirmHitlReject(hitlId, btn){
+  const reviewer = document.getElementById('hitl-reject-reviewer').value.trim() || 'console-reviewer';
+  btn.disabled = true;
+  btn.textContent = 'Rejecting…';
+  // Immediately remove the card from DOM so it cannot be acted on again
+  const cardEl = document.getElementById('hitl-' + hitlId);
+  if(cardEl) cardEl.style.display = 'none';
   try{
-    const q = who ? `?rejected_by=${encodeURIComponent(who)}` : '';
-    const res = await api(`/v1/hitl/${id}/${action}${q}`, { method:'POST' });
-    toast(`Rejected — action blocked`, true);
-    loadHitl();
-    loadOverview();
+    const q = `?rejected_by=${encodeURIComponent(reviewer)}`;
+    const res = await api(`/v1/hitl/${hitlId}/reject${q}`, { method:'POST' });
+    toast('Rejected — action blocked and logged', true);
+    setTimeout(() => {
+      closeHitlModal();
+      loadHitl();
+      loadOverview();
+      loadAudit();
+    }, 1000);
   }catch(e){
     toast(`Failed: ${e.message}`, false);
-    btn.closest('.hitl-actions').querySelectorAll('button').forEach(b => b.disabled = false);
+    // Restore the card if the API call failed
+    if(cardEl) cardEl.style.display = '';
+    btn.disabled = false;
+    btn.textContent = 'Confirm Reject';
+    const resultBox = document.getElementById('hitl-reject-result');
+    resultBox.style.display = 'block';
+    resultBox.innerHTML = `<div class="execute-result" style="color:#FFB3B3;">Error: ${escapeHtml(e.message)}</div>`;
   }
 }
 
@@ -800,39 +1110,43 @@ async function loadAudit(){
   const box = document.getElementById('audit-table');
   box.innerHTML = '<div class="empty">Loading…</div>';
   const agent = document.getElementById('audit-agent').value.trim();
-  const tool = document.getElementById('audit-tool').value.trim().toLowerCase();
-  const actionType = document.getElementById('audit-action-type').value.trim().toLowerCase();
+  const toolFilter = document.getElementById('audit-tool').value.trim().toLowerCase();
+  const actionTypeFilter = document.getElementById('audit-action-type').value.trim().toLowerCase();
   const verdict = document.getElementById('audit-verdict').value;
+  const timeRange = document.getElementById('audit-time').value;
   const limit = document.getElementById('audit-limit').value.trim() || '50';
   try{
-    const q = new URLSearchParams({limit});
+    const q = new URLSearchParams({limit: Math.max(parseInt(limit)||50, 200)});
     if(agent) q.set('agent_id', agent);
     const data = await api('/v1/audit?' + q.toString());
     let items = data.items || [];
 
-    if(tool) items = items.filter(i => (i.tool_name||'').toLowerCase().includes(tool));
-    if(actionType) items = items.filter(i => (i.action_type||'').toLowerCase().includes(actionType));
-    if(verdict) items = items.filter(i => i.verdict === verdict);
+    collectFiltersFromItems(items);
 
-    const agents = new Set();
-    items.forEach(i => { if(i.agent_id) agents.add(i.agent_id); });
-    updateAgentDropdown(agents);
+    if(toolFilter) items = items.filter(i => (i.tool_name||'').toLowerCase().includes(toolFilter));
+    if(actionTypeFilter) items = items.filter(i => (i.action_type||'').toLowerCase().includes(actionTypeFilter));
+    if(verdict) items = items.filter(i => i.verdict === verdict);
+    if(timeRange){
+      const cutoff = Date.now() - parseInt(timeRange);
+      items = items.filter(i => new Date(i.timestamp).getTime() > cutoff);
+    }
 
     if(items.length === 0){
       box.innerHTML = '<div class="empty"><div class="glyph">·</div>No audit records match.</div>';
       return;
     }
     items.sort((a,b)=> new Date(b.timestamp) - new Date(a.timestamp));
+    const displayItems = items.slice(0, parseInt(limit)||50);
     box.innerHTML = `<table><thead><tr>
       <th>Timestamp</th><th>Agent</th><th>Tool</th><th>Action type</th><th>Verdict</th><th>Executed</th><th>Rules</th>
-    </tr></thead><tbody>${items.map(renderAuditRow).join('')}</tbody></table>`;
+    </tr></thead><tbody>${displayItems.map(renderAuditRow).join('')}</tbody></table>`;
   }catch(e){
     box.innerHTML = `<div class="empty">Could not load audit log — ${escapeHtml(e.message)}</div>`;
   }
 }
 
 function verdictBadge(v){
-  const map = {block:['b-block','block'], require_hitl:['b-hitl','require_hitl'], log_and_allow:['b-allow','log_and_allow']};
+  const map = {block:['b-block','BLOCK'], require_hitl:['b-hitl','REQUIRE_HITL'], log_and_allow:['b-allow','LOG_AND_ALLOW']};
   const [cls,label] = map[v] || ['b-expired', v];
   return `<span class="badge ${cls}">${label}</span>`;
 }
@@ -880,6 +1194,83 @@ function openAuditDetail(jsonStr){
 
 function closeAuditModal(){
   document.getElementById('audit-modal').classList.remove('open');
+}
+
+/* ---------------- Agents ---------------- */
+function loadAgents(){
+  const box = document.getElementById('agents-grid');
+  if(allAuditItems.length === 0){
+    box.innerHTML = '<div class="empty">No audit data loaded. Visit Audit Log first.</div>';
+    return;
+  }
+  const agentMap = {};
+  allAuditItems.forEach(i => {
+    const id = i.agent_id || 'unknown';
+    if(!agentMap[id]) agentMap[id] = { actions:0, block:0, require_hitl:0, log_and_allow:0, lastSeen:null, tools:new Set() };
+    agentMap[id].actions++;
+    if(i.verdict === 'block') agentMap[id].block++;
+    else if(i.verdict === 'require_hitl') agentMap[id].require_hitl++;
+    else if(i.verdict === 'log_and_allow') agentMap[id].log_and_allow++;
+    if(i.tool_name) agentMap[id].tools.add(i.tool_name);
+    const ts = new Date(i.timestamp);
+    if(!agentMap[id].lastSeen || ts > agentMap[id].lastSeen) agentMap[id].lastSeen = ts;
+  });
+
+  const entries = Object.entries(agentMap).sort((a,b) => b[1].lastSeen - a[1].lastSeen);
+  if(entries.length === 0){
+    box.innerHTML = '<div class="empty">No agents found in audit data.</div>';
+    return;
+  }
+
+  const cards = entries.map(([id, stats]) => {
+    const ago = stats.lastSeen ? timeAgo(stats.lastSeen) : '—';
+    const toolTags = Array.from(stats.tools).map(t => `<span class="tag">${escapeHtml(t)}</span>`).join('');
+    return `<div class="agent-card" onclick="filterAuditByAgent('${escapeHtml(id)}')">
+      <div class="agent-card-header">
+        <div class="agent-id">${escapeHtml(id)}</div>
+        <div class="agent-last-seen">Last seen: ${ago}</div>
+      </div>
+      <div class="agent-card-body">
+        <div class="agent-row">
+          <span class="label">Total Actions</span>
+          <span class="value">${stats.actions}</span>
+        </div>
+        <div class="agent-row">
+          <span class="label">Blocked</span>
+          <span class="value" style="color:var(--red);">${stats.block}</span>
+        </div>
+        <div class="agent-row">
+          <span class="label">HITL Required</span>
+          <span class="value" style="color:var(--amber);">${stats.require_hitl}</span>
+        </div>
+        <div class="agent-row">
+          <span class="label">Allowed</span>
+          <span class="value" style="color:var(--green);">${stats.log_and_allow}</span>
+        </div>
+        <div class="agent-row">
+          <span class="label">Tools Used</span>
+          <span class="value"><div class="agent-tools-list">${toolTags || '<span class="tag">—</span>'}</div></span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  box.innerHTML = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:14px;">${cards}</div>`;
+}
+
+function timeAgo(date){
+  const s = Math.floor((Date.now() - date.getTime()) / 1000);
+  if(s < 60) return s + 's ago';
+  const m = Math.floor(s/60);
+  if(m < 60) return m + 'm ago';
+  const h = Math.floor(m/60);
+  if(h < 24) return h + 'h ago';
+  return Math.floor(h/24) + 'd ago';
+}
+
+function filterAuditByAgent(agentId){
+  showView('audit');
+  document.getElementById('audit-agent').value = agentId;
+  loadAudit();
 }
 
 /* ---------------- Policies ---------------- */
@@ -994,28 +1385,20 @@ async function runTest(){
   }
 }
 
+/* ---------------- Settings ---------------- */
+function loadSettings(){
+  // Settings page is static — security notice and config info only
+}
+
+/* ---------------- Utilities ---------------- */
 function escapeHtml(s){
   if(s === null || s === undefined) return '';
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-/* ---------------- boot from saved session ---------------- */
-(function(){
-  const cfg = window.GUARDRAIL_CONFIG;
-  if(cfg && cfg.apiUrl && cfg.apiKey && cfg.apiKey !== 'REPLACE_ME'){
-    document.getElementById('in-url').value = cfg.apiUrl;
-    document.getElementById('in-key').value = cfg.apiKey;
-    connect();
-    return;
-  }
-  const su = sessionStorage.getItem('gr_url');
-  const sk = sessionStorage.getItem('gr_key');
-  if(su && sk){
-    document.getElementById('in-url').value = su;
-    document.getElementById('in-key').value = sk;
-    connect();
-  }
-})();
+/* ---------------- boot ---------------- */
+// Dashboard always starts on the connection gate.
+// Credentials are entered by the user and held in memory only.
 </script>
 </body>
 </html>
